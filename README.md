@@ -88,6 +88,9 @@ Regras aplicadas:
 - evita duplicidade por URL (nao grava o mesmo link duas vezes)
 - separa automaticamente VOD x canais ao vivo
 - salva links M3U/M3U8 e demais URLs conforme classificados na lista
+- botoes na barra inferior para abrir direto no Bloco de Notas:
+  - `Abrir TXT VOD`
+  - `Abrir TXT Canais`
 
 ## 🔄 Atualizacao e rollback
 

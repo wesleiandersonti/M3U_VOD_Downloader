@@ -885,6 +885,40 @@ namespace MeuGestorVODs
             public string BrowserDownloadUrl { get; set; } = string.Empty;
         }
 
+        private void OpenVodLinksTxt_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureLinkDatabaseFiles();
+            var filePath = Path.Combine(DownloadPath, VodLinksDatabaseFileName);
+            OpenTextFileInNotepad(filePath, "VOD");
+        }
+
+        private void OpenLiveLinksTxt_Click(object sender, RoutedEventArgs e)
+        {
+            EnsureLinkDatabaseFiles();
+            var filePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
+            OpenTextFileInNotepad(filePath, "Canais ao vivo");
+        }
+
+        private void OpenTextFileInNotepad(string filePath, string label)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "notepad.exe",
+                    Arguments = $"\"{filePath}\"",
+                    UseShellExecute = true
+                });
+
+                StatusMessage = $"Abrindo TXT de {label}...";
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Nao foi possivel abrir o arquivo TXT de {label}: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = $"Erro ao abrir TXT de {label}";
+            }
+        }
+
         private void OpenGitHub_Click(object sender, RoutedEventArgs e)
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo

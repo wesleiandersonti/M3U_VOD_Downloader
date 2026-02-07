@@ -7,6 +7,8 @@ Objetivo: manter visao tecnica, funcional e de operacao em um unico lugar para o
 Documentos complementares:
 
 - `docs/ARQUITETURA_XUI_ONE_IPTV.md` - arquitetura de referencia XUI One, modelo de dados e diretrizes IPTV
+- `docs/MODELO_DE_DADOS_XUI.md` - entidades, relacionamentos e contrato de dados
+- `docs/PLANO_DE_IMPLEMENTACAO_XUI.md` - roadmap por fases, DoD e criterios de sucesso
 - `README.md` - visao rapida de uso e instalacao
 
 ---

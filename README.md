@@ -2,11 +2,11 @@
 
 Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
 
-## Download
+## 🚀 Download
 
 Versao 1.0.0 - [Baixar aqui](https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest)
 
-## Instalacao
+## 📋 Instalacao
 
 1. Baixe o arquivo `MEU_GESTOR_DE_VODS.zip` na aba Releases.
 2. Extraia para qualquer pasta.
@@ -14,7 +14,7 @@ Versao 1.0.0 - [Baixar aqui](https://github.com/wesleiandersonti/MEU_GESTOR_DE_V
 
 Nao requer instalacao. Aplicativo portatil.
 
-## Funcionalidades
+## 🚀 Funcionalidades
 
 ### Arquitetura
 
@@ -49,7 +49,7 @@ Nao requer instalacao. Aplicativo portatil.
 - [x] Serilog - Logs estruturados em arquivo
 - [x] Rotacao Diaria - Arquivos de log organizados
 
-## Estrutura do Projeto
+## 📁 Estrutura do Projeto
 
 ```text
 MeuGestorVODs/
@@ -71,7 +71,7 @@ MeuGestorVODs/
 └── MeuGestorVODs.csproj
 ```
 
-## Como Compilar
+## 🔧 Como Compilar
 
 ### Pre-requisitos
 
@@ -94,7 +94,7 @@ dotnet run
 dotnet publish -c Release -r win-x64 --self-contained true
 ```
 
-## Configuracao
+## ⚙️ Configuracao
 
 O arquivo de configuracao e salvo automaticamente em:
 
@@ -114,7 +114,7 @@ Exemplo:
 }
 ```
 
-## Fluxo de uso
+## 🎯 Funcionalidades de Uso
 
 ### Download de VODs
 
@@ -139,7 +139,7 @@ Exemplo:
 - Configure "Max Parallel Downloads" (1-5).
 - Downloads simultaneos com controle de largura de banda.
 
-## Seguranca
+## 🛡️ Seguranca
 
 - [x] URLs validadas (apenas HTTP/HTTPS)
 - [x] Sanitizacao de nomes de arquivo
@@ -147,7 +147,7 @@ Exemplo:
 - [x] Validacao de esquemas de URL
 - [x] Verificacao de tamanho de paths
 
-## Logs
+## 📝 Logs
 
 Logs sao salvos em:
 
@@ -155,16 +155,16 @@ Logs sao salvos em:
 %AppData%\MeuGestorVODs\logs\app-YYYY-MM-DD.log
 ```
 
-## Atualizacoes
+## 🔄 Atualizacoes
 
 O sistema verifica automaticamente atualizacoes na inicializacao.
 Tambem e possivel verificar manualmente via botao "Check for Updates".
 
-## Licenca
+## 📄 Licenca
 
 Licenca Comercial (paga) - uso mediante aquisicao de licenca.
 
-## Sobre
+## 🙏 Sobre
 
 MEU GESTOR DE VODS - Aplicativo moderno para gerenciamento de VODs de listas IPTV M3U.
 Desenvolvido com C# .NET 8 e arquitetura MVVM.

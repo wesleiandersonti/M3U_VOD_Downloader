@@ -385,19 +385,19 @@ namespace MeuGestorVODs
                 return;
             }
 
-            Clipboard.SetText(entry.Url);
+            System.Windows.Clipboard.SetText(entry.Url);
             StatusMessage = $"URL copiada: {entry.Name}";
         }
 
         private void PasteToM3uField_Click(object sender, RoutedEventArgs e)
         {
-            if (!Clipboard.ContainsText())
+            if (!System.Windows.Clipboard.ContainsText())
             {
                 System.Windows.MessageBox.Show("Area de transferencia vazia.", "Colar", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            M3UUrl = Clipboard.GetText().Trim();
+            M3UUrl = System.Windows.Clipboard.GetText().Trim();
             StatusMessage = "URL colada no campo M3U";
         }
 

@@ -14,7 +14,7 @@ AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\Meu Gestor de VODs
 DefaultGroupName=MEU GESTOR DE VODS
-DisableProgramGroupPage=yes
+DisableProgramGroupPage=no
 OutputDir=..\installer-output
 OutputBaseFilename=MeuGestorVODs-Setup-{#MyAppVersion}
 Compression=lzma
@@ -27,13 +27,20 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
+[Tasks]
+Name: "startmenuicon"; Description: "Criar atalhos no Menu Iniciar"; GroupDescription: "Atalhos:"; Flags: checkedonce
+Name: "autostart"; Description: "Iniciar com o Windows"; GroupDescription: "Opcoes adicionais:"; Flags: unchecked
+
 [Files]
 Source: "..\output\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\MEU GESTOR DE VODS"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\Desinstalar MEU GESTOR DE VODS"; Filename: "{uninstallexe}"
+Name: "{group}\MEU GESTOR DE VODS"; Filename: "{app}\{#MyAppExeName}"; Tasks: startmenuicon
+Name: "{group}\Desinstalar MEU GESTOR DE VODS"; Filename: "{uninstallexe}"; Tasks: startmenuicon
 Name: "{autodesktop}\MEU GESTOR DE VODS"; Filename: "{app}\{#MyAppExeName}"
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MeuGestorVODs"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Executar MEU GESTOR DE VODS"; Flags: nowait postinstall skipifsilent

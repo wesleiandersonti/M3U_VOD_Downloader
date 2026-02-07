@@ -15,7 +15,11 @@ Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
 1. Baixe `MeuGestorVODs-Setup-vX.X.X.exe` na aba Releases.
 2. Execute o instalador e conclua o assistente.
 3. O instalador cria automaticamente o atalho na Area de Trabalho.
-4. Para remover o app, use uma das opcoes:
+4. Durante a instalacao voce pode escolher:
+   - criar atalhos no Menu Iniciar
+   - definir a pasta dos atalhos no Menu Iniciar
+   - ativar "Iniciar com o Windows"
+5. Para remover o app, use uma das opcoes:
    - Menu Iniciar > `Desinstalar MEU GESTOR DE VODS`
    - Configuracoes do Windows > Aplicativos > Desinstalar
 

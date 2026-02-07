@@ -170,14 +170,15 @@ namespace MeuGestorVODs
             EntriesList.Items.Refresh();
         }
 
-        private void EntryRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        private void EntriesList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (FindParent<CheckBox>(e.OriginalSource as DependencyObject) != null)
             {
                 return;
             }
 
-            if (sender is not DataGridRow row || row.Item is not M3UEntry entry)
+            var row = FindParent<DataGridRow>(e.OriginalSource as DependencyObject);
+            if (row?.Item is not M3UEntry entry)
             {
                 return;
             }
@@ -185,12 +186,25 @@ namespace MeuGestorVODs
             SelectedEntry = entry;
             EntriesList.SelectedItem = entry;
 
-            if (row.ContextMenu != null)
+            var menu = new ContextMenu();
+
+            var checkItem = new MenuItem
             {
-                row.ContextMenu.PlacementTarget = row;
-                row.ContextMenu.IsOpen = true;
-                e.Handled = true;
-            }
+                Header = "Verificar se ja esta salvo no TXT"
+            };
+            checkItem.Click += CheckSelectedInTxt_Click;
+
+            var playItem = new MenuItem
+            {
+                Header = "Reproduzir no VLC"
+            };
+            playItem.Click += PlaySelectedInVlc_Click;
+
+            menu.Items.Add(checkItem);
+            menu.Items.Add(playItem);
+            menu.PlacementTarget = row;
+            menu.IsOpen = true;
+            e.Handled = true;
         }
 
         private void CheckSelectedInTxt_Click(object sender, RoutedEventArgs e)

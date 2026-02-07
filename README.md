@@ -2,6 +2,18 @@
 
 Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
 
+## 🚀 Download
+
+**Versão 1.0.0** - [Baixar aqui](../../releases/latest)
+
+## 📋 Instalação
+
+1. Baixe o arquivo `MEU_GESTOR_DE_VODS.zip` na aba Releases
+2. Extraia para qualquer pasta
+3. Execute `MeuGestorVODs.exe`
+
+**Não requer instalação!** (Aplicativo portátil)
+
 ## 🚀 Funcionalidades
 
 ### Arquitetura

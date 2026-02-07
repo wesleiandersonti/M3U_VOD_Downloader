@@ -2,6 +2,11 @@
 
 Gerenciador de VODs para listas IPTV M3U em C# .NET 8 (WPF).
 
+## 📚 Documentacao
+
+- Base do projeto: `docs/BASE_DO_PROJETO.md`
+- Arquitetura XUI One (referencia): `docs/ARQUITETURA_XUI_ONE_IPTV.md`
+
 ## 🚀 Download
 
 - Instalador (recomendado): `MeuGestorVODs-Setup-vX.X.X.exe`

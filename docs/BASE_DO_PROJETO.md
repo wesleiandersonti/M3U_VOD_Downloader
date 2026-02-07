@@ -4,6 +4,11 @@ Este documento e a base oficial de referencia do projeto fora do README.
 
 Objetivo: manter visao tecnica, funcional e de operacao em um unico lugar para orientar evolucao, suporte e release.
 
+Documentos complementares:
+
+- `docs/ARQUITETURA_XUI_ONE_IPTV.md` - arquitetura de referencia XUI One, modelo de dados e diretrizes IPTV
+- `README.md` - visao rapida de uso e instalacao
+
 ---
 
 ## 1) Objetivo do produto

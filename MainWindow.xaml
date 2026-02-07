@@ -82,6 +82,19 @@
                     <DataGrid Grid.Row="1" x:Name="EntriesList" ItemsSource="{Binding FilteredEntries}" 
                              AutoGenerateColumns="False" CanUserAddRows="False" 
                              SelectionMode="Extended" GridLinesVisibility="Horizontal">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Verificar se ja esta salvo no TXT" Click="CheckSelectedInTxt_Click"/>
+                                            <MenuItem Header="Reproduzir no VLC" Click="PlaySelectedInVlc_Click"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                                <EventSetter Event="PreviewMouseLeftButtonUp" Handler="EntryRow_PreviewMouseLeftButtonUp"/>
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, Mode=TwoWay}" Width="30"/>
                             <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*"/>

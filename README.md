@@ -41,6 +41,10 @@ Gerenciador de VODs para listas IPTV M3U em C# .NET 8 (WPF).
 - Verificacao de atualizacao automatica
 - Exibicao da versao atual na barra inferior
 - Rollback para versao anterior (baixa e abre instalador da release escolhida)
+- Clique com botao esquerdo sobre um conteudo para abrir menu rapido
+- Menu rapido com:
+  - verificar se o link ja esta salvo nos bancos TXT
+  - reproduzir o conteudo direto no VLC
 
 ## ⚙️ Estrutura automatica de pastas (TXT)
 
@@ -91,6 +95,9 @@ Regras aplicadas:
 - botoes na barra inferior para abrir direto no Bloco de Notas:
   - `Abrir TXT VOD`
   - `Abrir TXT Canais`
+- no menu rapido do item (clique esquerdo):
+  - `Verificar se ja esta salvo no TXT`
+  - `Reproduzir no VLC`
 
 ## 🔄 Atualizacao e rollback
 

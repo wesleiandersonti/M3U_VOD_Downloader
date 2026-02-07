@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace MeuGestorVODs
 {
@@ -167,6 +168,192 @@ namespace MeuGestorVODs
                 entry.IsSelected = false;
             }
             EntriesList.Items.Refresh();
+        }
+
+        private void EntryRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (FindParent<CheckBox>(e.OriginalSource as DependencyObject) != null)
+            {
+                return;
+            }
+
+            if (sender is not DataGridRow row || row.Item is not M3UEntry entry)
+            {
+                return;
+            }
+
+            SelectedEntry = entry;
+            EntriesList.SelectedItem = entry;
+
+            if (row.ContextMenu != null)
+            {
+                row.ContextMenu.PlacementTarget = row;
+                row.ContextMenu.IsOpen = true;
+                e.Handled = true;
+            }
+        }
+
+        private void CheckSelectedInTxt_Click(object sender, RoutedEventArgs e)
+        {
+            var entry = ResolveCurrentEntry();
+            if (entry == null)
+            {
+                System.Windows.MessageBox.Show("Selecione um conteudo primeiro.", "Informacao", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            EnsureLinkDatabaseFiles();
+
+            var vodFilePath = Path.Combine(DownloadPath, VodLinksDatabaseFileName);
+            var liveFilePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
+
+            var inVod = IsUrlInDatabase(vodFilePath, entry.Url);
+            var inLive = IsUrlInDatabase(liveFilePath, entry.Url);
+
+            if (inVod || inLive)
+            {
+                var source = inVod ? VodLinksDatabaseFileName : LiveLinksDatabaseFileName;
+                System.Windows.MessageBox.Show(
+                    $"Conteudo encontrado no banco TXT.\n\nArquivo: {source}\nNome: {entry.Name}",
+                    "Verificacao TXT",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                StatusMessage = $"Conteudo ja esta salvo no TXT ({source})";
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(
+                    "Conteudo ainda nao foi encontrado nos bancos TXT.",
+                    "Verificacao TXT",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                StatusMessage = "Conteudo nao encontrado nos bancos TXT";
+            }
+        }
+
+        private void PlaySelectedInVlc_Click(object sender, RoutedEventArgs e)
+        {
+            var entry = ResolveCurrentEntry();
+            if (entry == null)
+            {
+                System.Windows.MessageBox.Show("Selecione um conteudo para reproduzir.", "Informacao", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.Url))
+            {
+                System.Windows.MessageBox.Show("O conteudo selecionado nao possui URL valida.", "Erro", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var vlcPath = FindVlcPath();
+            if (string.IsNullOrWhiteSpace(vlcPath))
+            {
+                System.Windows.MessageBox.Show(
+                    "VLC nao encontrado. Instale o VLC para usar esta opcao.",
+                    "VLC nao encontrado",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                StatusMessage = "VLC nao encontrado no sistema";
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = vlcPath,
+                    Arguments = $"\"{entry.Url}\"",
+                    UseShellExecute = true
+                });
+                StatusMessage = $"Reproduzindo no VLC: {entry.Name}";
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Falha ao abrir VLC: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "Erro ao abrir VLC";
+            }
+        }
+
+        private M3UEntry? ResolveCurrentEntry()
+        {
+            return EntriesList.SelectedItem as M3UEntry ?? SelectedEntry;
+        }
+
+        private static bool IsUrlInDatabase(string filePath, string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url) || !File.Exists(filePath))
+            {
+                return false;
+            }
+
+            var target = url.Trim();
+            foreach (var rawLine in File.ReadLines(filePath))
+            {
+                var line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('|');
+                if (parts.Length == 0)
+                {
+                    continue;
+                }
+
+                var candidate = parts[^1].Trim();
+                if (string.Equals(candidate, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string? FindVlcPath()
+        {
+            var commonPaths = new[]
+            {
+                @"C:\Program Files\VideoLAN\VLC\vlc.exe",
+                @"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VideoLAN", "VLC", "vlc.exe")
+            };
+
+            foreach (var path in commonPaths)
+            {
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+            }
+
+            var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            foreach (var folder in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var candidate = Path.Combine(folder, "vlc.exe");
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private static T? FindParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T typed)
+                {
+                    return typed;
+                }
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
         }
 
         private async void DownloadSelected_Click(object sender, RoutedEventArgs e)

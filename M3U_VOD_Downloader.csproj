@@ -7,9 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
-    <Version>2.0.0</Version>
-    <FileVersion>2.0.0</FileVersion>
-    <AssemblyVersion>2.0.0</AssemblyVersion>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0</FileVersion>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
     <Authors>M3U VOD Downloader</Authors>
     <Description>Modern VOD downloader for IPTV M3U files</Description>
   </PropertyGroup>

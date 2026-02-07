@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:M3UVODDownloader.ViewModels"
         mc:Ignorable="d"
-        Title="M3U VOD Downloader v2.0" 
+        Title="M3U VOD Downloader v1.0" 
         Height="800" Width="1200"
         MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen">

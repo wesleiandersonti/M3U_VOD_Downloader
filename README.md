@@ -1,4 +1,4 @@
-# M3U VOD Downloader v2.0
+# M3U VOD Downloader v1.0
 
 Versão moderna e reescrita em C# .NET 8 do downloader de VOD para listas IPTV M3U.
 

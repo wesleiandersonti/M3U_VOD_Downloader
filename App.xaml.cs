@@ -48,7 +48,7 @@ public partial class App : Application
         // HttpClient
         services.AddHttpClient("default", client =>
         {
-            client.DefaultRequestHeaders.Add("User-Agent", "M3U-VOD-Downloader/2.0");
+            client.DefaultRequestHeaders.Add("User-Agent", "M3U-VOD-Downloader/1.0");
             client.Timeout = TimeSpan.FromMinutes(5);
         });
 

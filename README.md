@@ -1,27 +1,27 @@
-# MEU GESTOR DE VODS v1.0
+# MEU GESTOR DE VODS
 
-Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
+Gerenciador de VODs para listas IPTV M3U em C# .NET 8 (WPF).
 
 ## 🚀 Download
 
 - Instalador (recomendado): `MeuGestorVODs-Setup-vX.X.X.exe`
 - Portatil: `MeuGestorVODs-vX.X.X.zip`
-- Releases: [Baixar aqui](https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest)
+- Releases: [https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest](https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest)
 
 ## 📋 Instalacao
 
-### Opcao 1 - Instalador (com desinstalador)
+### Opcao 1 - Instalador (recomendado)
 
-1. Baixe `MeuGestorVODs-Setup-vX.X.X.exe` na aba Releases.
-2. Execute o instalador e conclua o assistente.
-3. O instalador cria automaticamente o atalho na Area de Trabalho.
-4. Durante a instalacao voce pode escolher:
-   - criar atalhos no Menu Iniciar
-   - definir a pasta dos atalhos no Menu Iniciar
-   - ativar "Iniciar com o Windows"
-5. Para remover o app, use uma das opcoes:
+1. Baixe `MeuGestorVODs-Setup-vX.X.X.exe`.
+2. Execute o instalador.
+3. O atalho da Area de Trabalho e criado automaticamente.
+4. O instalador oferece:
+   - atalhos no Menu Iniciar
+   - pasta personalizada do Menu Iniciar
+   - opcao "Iniciar com o Windows"
+5. Para remover:
    - Menu Iniciar > `Desinstalar MEU GESTOR DE VODS`
-   - Configuracoes do Windows > Aplicativos > Desinstalar
+   - ou Configuracoes do Windows > Aplicativos > Desinstalar
 
 ### Opcao 2 - Portatil
 
@@ -29,117 +29,28 @@ Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
 2. Extraia para qualquer pasta.
 3. Execute `MeuGestorVODs.exe`.
 
-Nao requer instalacao na opcao portatil.
+## ✅ Funcionalidades atuais
 
-## 🚀 Funcionalidades
+- Carregar playlist M3U por URL
+- Listar itens com nome e grupo
+- Filtro em tempo real
+- Selecionar todos / desmarcar todos
+- Download de itens selecionados com progresso por item
+- Verificacao de arquivo ja existente (evita baixar duplicado)
+- Organizacao automatica em pastas por categoria via TXT
+- Verificacao de atualizacao automatica
+- Exibicao da versao atual na barra inferior
+- Rollback para versao anterior (baixa e abre instalador da release escolhida)
 
-### Arquitetura
+## ⚙️ Estrutura automatica de pastas (TXT)
 
-- [x] C# .NET 8 - Tecnologia moderna da Microsoft
-- [x] Arquitetura MVVM - Separacao clara de responsabilidades
-- [x] Injecao de Dependencias - Codigo testavel e modular
-- [x] Async/Await - Operacoes nao-bloqueantes
-
-### Performance
-
-- [x] HttpClient - Cliente HTTP moderno e eficiente
-- [x] Downloads Paralelos - Configure multiplos downloads simultaneos
-- [x] Cache de M3U - Evita downloads repetidos (TTL configuravel)
-- [x] Resume de Downloads - Continua downloads interrompidos
-- [x] Retry com Exponential Backoff - Recuperacao automatica de falhas
-
-### Interface
-
-- [x] WPF Moderno - Interface clean e responsiva
-- [x] Progresso Individual - Barra de progresso para cada download
-- [x] Filtro em Tempo Real - Busca instantanea na lista
-- [x] DataGrid Avancado - Ordenacao e selecao multipla
-
-### Seguranca
-
-- [x] Validacao de URLs - Apenas HTTP/HTTPS permitido
-- [x] Sanitizacao de Paths - Previne path traversal
-- [x] Validacao de Config - Valores seguros por padrao
-
-### Logging
-
-- [x] Serilog - Logs estruturados em arquivo
-- [x] Rotacao Diaria - Arquivos de log organizados
-
-## 📁 Estrutura do Projeto
-
-```text
-MeuGestorVODs/
-├── Models/
-│   ├── M3UEntry.cs          # Modelo de entrada M3U
-│   ├── DownloadTask.cs      # Modelo de tarefa de download
-│   └── AppConfig.cs         # Configuracao da aplicacao
-├── Services/
-│   ├── M3UService.cs        # Parsing e cache de M3U
-│   ├── DownloadService.cs   # Logica de download
-│   ├── PlayerService.cs     # Integracao com players
-│   └── UpdateService.cs     # Verificacao de atualizacoes
-├── ViewModels/
-│   └── MainViewModel.cs     # ViewModel principal
-├── Security/
-│   └── SecurityValidator.cs # Validacoes de seguranca
-├── MainWindow.xaml          # Interface principal
-├── App.xaml                 # Configuracao da aplicacao
-└── MeuGestorVODs.csproj
-```
-
-## 🔧 Como Compilar
-
-### Pre-requisitos
-
-- .NET 8 SDK
-- Visual Studio 2022 ou VS Code
-
-### Comandos
-
-```bash
-# Restaurar pacotes
-dotnet restore
-
-# Compilar
-dotnet build
-
-# Executar
-dotnet run
-
-# Publicar (Release)
-dotnet publish -c Release -r win-x64 --self-contained true
-```
-
-## ⚙️ Configuracao
-
-O arquivo de configuracao e salvo automaticamente em:
-
-```text
-%AppData%\MeuGestorVODs\config.json
-```
-
-Exemplo:
-
-```json
-{
-  "M3UUrl": "https://exemplo.com/playlist.m3u",
-  "DownloadPath": "C:\\Users\\Usuario\\Videos\\Meu Gestor VODs",
-  "MaxParallelDownloads": 3,
-  "CacheTtlMinutes": 30,
-  "AutoCheckUpdates": true
-}
-```
-
-### Estrutura automatica de pastas (TXT)
-
-Na pasta de download escolhida, o app cria automaticamente o arquivo:
+Na pasta de download selecionada, o app cria automaticamente:
 
 ```text
 estrutura_downloads.txt
 ```
 
-Formato do arquivo:
+Formato:
 
 ```text
 # Formato: Categoria=Pasta
@@ -153,64 +64,62 @@ Novelas=Novelas
 Outros=Outros
 ```
 
-No momento do download, o app:
+Comportamento no download:
 
-- verifica se o arquivo ja existe e ignora duplicados
-- cria automaticamente as pastas definidas no TXT
-- salva cada item na pasta da categoria correspondente
+- cria as pastas automaticamente
+- classifica cada item para a pasta correspondente
+- ignora item que ja existe no destino (`Ja existe - ignorado`)
 
-## 🎯 Funcionalidades de Uso
+## 🔄 Atualizacao e rollback
 
-### Download de VODs
+- Botao `Verificar Atualizacoes`:
+  - consulta a ultima release do GitHub
+  - compara com a versao instalada
+  - baixa e abre o instalador automaticamente quando houver versao nova
+- Campo `Versao atual` na barra inferior mostra a versao instalada
+- Botao `Voltar Versao`:
+  - permite informar a tag desejada (ex: `v1.0.4`)
+  - baixa e executa o instalador da versao anterior
 
-1. Cole a URL do arquivo M3U.
-2. Clique em "Load" para carregar a lista.
-3. Selecione os itens desejados.
-4. Clique em "Download Selected".
-5. Acompanhe o progresso individual de cada arquivo.
+## 🔧 Build local
 
-### Player Integrado
+Pre-requisitos:
 
-- Selecione um item e clique em "Play Selected".
-- Suporte automatico a VLC, MPV e players do sistema.
+- .NET 8 SDK
 
-### Filtro
+Comandos:
 
-- Digite na caixa "Filter" para buscar por nome.
-- Filtro em tempo real na lista.
-
-### Downloads Paralelos
-
-- Configure "Max Parallel Downloads" (1-5).
-- Downloads simultaneos com controle de largura de banda.
-
-## 🛡️ Seguranca
-
-- [x] URLs validadas (apenas HTTP/HTTPS)
-- [x] Sanitizacao de nomes de arquivo
-- [x] Protecao contra path traversal
-- [x] Validacao de esquemas de URL
-- [x] Verificacao de tamanho de paths
-
-## 📝 Logs
-
-Logs sao salvos em:
-
-```text
-%AppData%\MeuGestorVODs\logs\app-YYYY-MM-DD.log
+```bash
+dotnet restore
+dotnet build
+dotnet publish -c Release -r win-x64 --self-contained -o output
 ```
 
-## 🔄 Atualizacoes
+## 🤖 CI/CD
 
-- O botao `Verificar Atualizacoes` consulta a ultima release no GitHub e, se houver versao mais nova, baixa e abre o instalador automaticamente.
-- A barra inferior exibe a `Versao atual` instalada.
-- O botao `Voltar Versao` permite escolher uma release anterior para rollback automatico.
+Workflow em `.github/workflows/build.yml`:
+
+- build Windows
+- gera instalador (`.exe`) com Inno Setup
+- gera pacote portatil (`.zip`)
+- publica assets automaticamente em releases por tag `v*`
+
+## 📁 Estrutura atual do projeto
+
+```text
+.
+├── MainWindow.xaml
+├── MainWindow.xaml.cs
+├── Services.cs
+├── App.xaml
+├── App.xaml.cs
+├── MeuGestorVODs.csproj
+├── installer/
+│   └── MeuGestorVODs.iss
+└── .github/workflows/
+    └── build.yml
+```
 
 ## 📄 Licenca
 
 Licenca Comercial (paga) - uso mediante aquisicao de licenca.
-
-## 🙏 Sobre
-
-MEU GESTOR DE VODS - Aplicativo moderno para gerenciamento de VODs de listas IPTV M3U.
-Desenvolvido com C# .NET 8 e arquitetura MVVM.

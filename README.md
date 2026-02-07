@@ -4,15 +4,27 @@ Gerenciador moderno de VODs para listas IPTV M3U, desenvolvido em C# .NET 8.
 
 ## 🚀 Download
 
-Versao 1.0.0 - [Baixar aqui](https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest)
+- Instalador (recomendado): `MeuGestorVODs-Setup-vX.X.X.exe`
+- Portatil: `MeuGestorVODs-vX.X.X.zip`
+- Releases: [Baixar aqui](https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/latest)
 
 ## 📋 Instalacao
 
-1. Baixe o arquivo `MEU_GESTOR_DE_VODS.zip` na aba Releases.
+### Opcao 1 - Instalador (com desinstalador)
+
+1. Baixe `MeuGestorVODs-Setup-vX.X.X.exe` na aba Releases.
+2. Execute o instalador e conclua o assistente.
+3. Para remover o app, use uma das opcoes:
+   - Menu Iniciar > `Desinstalar MEU GESTOR DE VODS`
+   - Configuracoes do Windows > Aplicativos > Desinstalar
+
+### Opcao 2 - Portatil
+
+1. Baixe `MeuGestorVODs-vX.X.X.zip`.
 2. Extraia para qualquer pasta.
 3. Execute `MeuGestorVODs.exe`.
 
-Nao requer instalacao. Aplicativo portatil.
+Nao requer instalacao na opcao portatil.
 
 ## 🚀 Funcionalidades
 

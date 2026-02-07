@@ -80,7 +80,7 @@ namespace MeuGestorVODs
         {
             if (string.IsNullOrWhiteSpace(M3UUrl))
             {
-                MessageBox.Show("Por favor, insira a URL do arquivo M3U", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("Por favor, insira a URL do arquivo M3U", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -102,7 +102,7 @@ namespace MeuGestorVODs
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao carregar M3U: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"Erro ao carregar M3U: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusMessage = "Erro ao carregar";
             }
             finally
@@ -149,7 +149,7 @@ namespace MeuGestorVODs
             
             if (!selected.Any())
             {
-                MessageBox.Show("Selecione pelo menos um item para download", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("Selecione pelo menos um item para download", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -232,13 +232,13 @@ namespace MeuGestorVODs
                 }
                 else
                 {
-                    MessageBox.Show("Não foi possível verificar atualizações. Verifique sua conexão.", "Erro", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("Não foi possível verificar atualizações. Verifique sua conexão.", "Erro", MessageBoxButton.OK, MessageBoxImage.Warning);
                     StatusMessage = "Erro ao verificar atualizações";
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao verificar atualizações: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"Erro ao verificar atualizações: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusMessage = "Erro ao verificar atualizações";
             }
         }

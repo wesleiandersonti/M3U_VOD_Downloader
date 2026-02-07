@@ -26,6 +26,8 @@ namespace MeuGestorVODs
         private bool _isLoading = false;
         private M3UEntry _selectedEntry;
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
+        private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
+        private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
         private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
         private readonly HttpClient _releaseClient = new HttpClient();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -93,6 +95,7 @@ namespace MeuGestorVODs
             _downloadService = new DownloadService();
             DownloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Meu Gestor VODs");
             EnsureAndLoadDownloadStructure();
+            EnsureLinkDatabaseFiles();
             _releaseClient.DefaultRequestHeaders.Add("User-Agent", "MeuGestorVODs");
             CurrentVersionText = $"Versao atual: {GetCurrentAppVersion()}";
         }
@@ -117,9 +120,11 @@ namespace MeuGestorVODs
                 {
                     Entries.Add(entry);
                 }
+
+                var (newVod, newLive) = PersistLinkDatabases(entries);
                 
                 ApplyFilter();
-                StatusMessage = $"Carregados {entries.Count} itens";
+                StatusMessage = $"Carregados {entries.Count} itens | Banco TXT: +{newVod} VOD, +{newLive} canais";
             }
             catch (Exception ex)
             {
@@ -241,8 +246,131 @@ namespace MeuGestorVODs
             {
                 DownloadPath = dialog.SelectedPath;
                 EnsureAndLoadDownloadStructure();
+                EnsureLinkDatabaseFiles();
                 StatusMessage = $"Estrutura de download carregada em: {Path.Combine(DownloadPath, DownloadStructureFileName)}";
             }
+        }
+
+        private void EnsureLinkDatabaseFiles()
+        {
+            if (!Directory.Exists(DownloadPath))
+            {
+                Directory.CreateDirectory(DownloadPath);
+            }
+
+            var vodFilePath = Path.Combine(DownloadPath, VodLinksDatabaseFileName);
+            if (!File.Exists(vodFilePath))
+            {
+                File.WriteAllLines(vodFilePath, new[]
+                {
+                    "# Banco TXT de links VOD (videos e series)",
+                    "# Formato: Nome|Grupo|URL"
+                });
+            }
+
+            var liveFilePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
+            if (!File.Exists(liveFilePath))
+            {
+                File.WriteAllLines(liveFilePath, new[]
+                {
+                    "# Banco TXT de links de canais ao vivo",
+                    "# Formato: Nome|Grupo|URL"
+                });
+            }
+        }
+
+        private (int newVod, int newLive) PersistLinkDatabases(IEnumerable<M3UEntry> entries)
+        {
+            EnsureLinkDatabaseFiles();
+
+            var vodFilePath = Path.Combine(DownloadPath, VodLinksDatabaseFileName);
+            var liveFilePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
+
+            var newVod = MergeEntriesIntoDatabase(vodFilePath, entries.Where(IsVodEntry));
+            var newLive = MergeEntriesIntoDatabase(liveFilePath, entries.Where(e => !IsVodEntry(e)));
+
+            return (newVod, newLive);
+        }
+
+        private int MergeEntriesIntoDatabase(string filePath, IEnumerable<M3UEntry> entries)
+        {
+            var existingUrls = LoadExistingUrls(filePath);
+            var linesToAppend = new List<string>();
+
+            foreach (var entry in entries)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Url))
+                {
+                    continue;
+                }
+
+                if (!existingUrls.Add(entry.Url.Trim()))
+                {
+                    continue;
+                }
+
+                var safeName = (entry.Name ?? string.Empty).Replace("|", " ").Trim();
+                var safeGroup = (entry.GroupTitle ?? string.Empty).Replace("|", " ").Trim();
+                var safeUrl = entry.Url.Trim();
+                linesToAppend.Add($"{safeName}|{safeGroup}|{safeUrl}");
+            }
+
+            if (linesToAppend.Count > 0)
+            {
+                File.AppendAllLines(filePath, linesToAppend);
+            }
+
+            return linesToAppend.Count;
+        }
+
+        private static HashSet<string> LoadExistingUrls(string filePath)
+        {
+            var urls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!File.Exists(filePath))
+            {
+                return urls;
+            }
+
+            foreach (var rawLine in File.ReadLines(filePath))
+            {
+                var line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('|');
+                if (parts.Length == 0)
+                {
+                    continue;
+                }
+
+                var url = parts[^1].Trim();
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    urls.Add(url);
+                }
+            }
+
+            return urls;
+        }
+
+        private bool IsVodEntry(M3UEntry entry)
+        {
+            var category = ResolveCategory(entry);
+            if (string.Equals(category, "Canais", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "24 Horas", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var url = entry.Url?.ToLowerInvariant() ?? string.Empty;
+            if (url.Contains("/live") || url.Contains("/channel") || url.Contains("channels"))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private void EnsureAndLoadDownloadStructure()

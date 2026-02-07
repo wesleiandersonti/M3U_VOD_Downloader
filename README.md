@@ -70,6 +70,25 @@ Comportamento no download:
 - classifica cada item para a pasta correspondente
 - ignora item que ja existe no destino (`Ja existe - ignorado`)
 
+## 🗂️ Banco TXT de links (integracao automatica)
+
+Assim que voce clica em `Carregar` e a URL M3U e validada, o app integra os links automaticamente em dois arquivos TXT dentro da pasta de download:
+
+- `banco_vod_links.txt` (videos e series)
+- `banco_canais_ao_vivo.txt` (canais ao vivo)
+
+Formato de cada linha:
+
+```text
+Nome|Grupo|URL
+```
+
+Regras aplicadas:
+
+- evita duplicidade por URL (nao grava o mesmo link duas vezes)
+- separa automaticamente VOD x canais ao vivo
+- salva links M3U/M3U8 e demais URLs conforme classificados na lista
+
 ## 🔄 Atualizacao e rollback
 
 - Botao `Verificar Atualizacoes`:

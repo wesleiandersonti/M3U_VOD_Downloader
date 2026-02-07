@@ -11,21 +11,21 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
     
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore MeuGestorVODs.csproj
     
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build MeuGestorVODs.csproj --configuration Release --no-restore
     
     - name: Publish
-      run: dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
+      run: dotnet publish MeuGestorVODs.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
     
     - name: Create ZIP
       run: |
@@ -33,7 +33,7 @@ jobs:
         7z a ../MEU_GESTOR_DE_VODS.zip *
     
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: MEU_GESTOR_DE_VODS
         path: ./publish

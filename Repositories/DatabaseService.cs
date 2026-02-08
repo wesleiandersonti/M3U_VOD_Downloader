@@ -16,7 +16,6 @@ namespace MeuGestorVODs.Repositories
     public class DatabaseService : IDisposable
     {
         private readonly string _databasePath;
-        private SqliteConnection? _connection;
         private readonly string _connectionString;
         private readonly object _lock = new();
 
@@ -121,7 +120,6 @@ namespace MeuGestorVODs.Repositories
 
         public void Dispose()
         {
-            _connection?.Dispose();
             GC.SuppressFinalize(this);
         }
     }

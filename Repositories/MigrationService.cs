@@ -53,7 +53,6 @@ namespace MeuGestorVODs.Repositories
             }
 
             result.Success = true;
-            result.TotalMigrated = result.VodMigrated + result.LiveMigrated;
             
             progress?.Report($"Migração concluída! Total: {result.TotalMigrated} entradas");
 

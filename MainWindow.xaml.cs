@@ -1641,7 +1641,7 @@ namespace MeuGestorVODs
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -1665,9 +1665,9 @@ namespace MeuGestorVODs
 
     public class DownloadItem : INotifyPropertyChanged
     {
-        private string _name;
+        private string _name = "";
         private double _progress;
-        private string _status;
+        private string _status = "";
 
         public string Name
         {
@@ -1687,7 +1687,7 @@ namespace MeuGestorVODs
             set { _status = value; OnPropertyChanged(nameof(Status)); }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

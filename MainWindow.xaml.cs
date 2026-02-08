@@ -71,6 +71,11 @@ namespace MeuGestorVODs
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
         private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
         private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
+        private static readonly HashSet<string> LiveCategoryNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Canais",
+            "24 Horas"
+        };
         private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
         private readonly HttpClient _releaseClient = new HttpClient();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -268,6 +273,7 @@ namespace MeuGestorVODs
 
             _linkCheckTimer.Tick += LinkCheckTimer_Tick;
             StateChanged += (_, _) => UpdateWindowStateButton();
+            Closing += MainWindow_Closing;
             ApplyMonitorPanelLayout(MonitorPanelLayout.Normal);
             ApplyTheme(AppThemeMode.System, updateStatus: false);
             UpdateWindowStateButton();
@@ -689,7 +695,7 @@ namespace MeuGestorVODs
 
                 BuildGroupIndex(_allEntries);
 
-                var (newVod, newLive) = PersistLinkDatabases(entries);
+                var (newVod, newLive) = await PersistLinkDatabasesAsync(entries);
                 
                 // Salvar URL no histórico
                 if (_databaseService != null)
@@ -704,8 +710,13 @@ namespace MeuGestorVODs
                 ApplyFilter();
                 
                 // Mostrar estatísticas do banco
-                var dbCount = _databaseService?.Entries.GetCountAsync().Result ?? 0;
-                var urlCount = _databaseService?.M3uUrls.GetAllAsync().Result.Count ?? 0;
+                var dbCount = 0;
+                var urlCount = 0;
+                if (_databaseService != null)
+                {
+                    dbCount = await _databaseService.Entries.GetCountAsync();
+                    urlCount = (await _databaseService.M3uUrls.GetAllAsync()).Count;
+                }
                 StatusMessage = $"Carregados {entries.Count} itens | SQLite: +{newVod} VOD, +{newLive} canais | Total no banco: {dbCount} | URLs: {urlCount}";
             }
             catch (Exception ex)
@@ -923,6 +934,66 @@ namespace MeuGestorVODs
         private void CloseWindow_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            _linkCheckTimer.Stop();
+            _linkCheckTimer.Tick -= LinkCheckTimer_Tick;
+
+            try
+            {
+                _downloadPauseGate.Set();
+            }
+            catch
+            {
+            }
+
+            if (_downloadCts != null)
+            {
+                try
+                {
+                    _downloadCts.Cancel();
+                }
+                catch
+                {
+                }
+
+                _downloadCts.Dispose();
+                _downloadCts = null;
+            }
+
+            foreach (var item in Downloads)
+            {
+                try
+                {
+                    item.CancelSource?.Cancel();
+                }
+                catch
+                {
+                }
+
+                item.CancelSource?.Dispose();
+                item.CancelSource = null;
+
+                try
+                {
+                    item.PauseGate?.Set();
+                }
+                catch
+                {
+                }
+
+                item.PauseGate?.Dispose();
+                item.PauseGate = null;
+            }
+
+            _databaseService?.Dispose();
+            _releaseClient.Dispose();
+            _m3uService.Dispose();
+            _downloadService.Dispose();
+            _linkHealthService.Dispose();
+            _streamCheckService.Dispose();
         }
 
         private void ToggleMaximizeRestore()
@@ -1362,7 +1433,7 @@ namespace MeuGestorVODs
             return null;
         }
 
-        private void DownloadSelected_Click(object sender, RoutedEventArgs e)
+        private async void DownloadSelected_Click(object sender, RoutedEventArgs e)
         {
             if (_isDownloadRunning)
             {
@@ -1409,7 +1480,7 @@ namespace MeuGestorVODs
 
             var selectedLive = selected.Where(IsLiveEntry).ToList();
             var selectedVod = selected.Where(x => !IsLiveEntry(x)).ToList();
-            var addedLiveBySelection = RegisterSelectedLiveChannels(selectedLive);
+            var addedLiveBySelection = await RegisterSelectedLiveChannelsAsync(selectedLive);
 
             if (!selectedVod.Any())
             {
@@ -1431,6 +1502,8 @@ namespace MeuGestorVODs
             var success = 0;
             var failed = 0;
             var tasks = new List<Task>();
+            var maxConcurrentDownloads = ComputeDownloadParallelism(selectedVod.Count);
+            using var downloadSemaphore = new SemaphoreSlim(maxConcurrentDownloads, maxConcurrentDownloads);
 
             _downloadCts?.Dispose();
             _downloadCts = new CancellationTokenSource();
@@ -1487,8 +1560,24 @@ namespace MeuGestorVODs
 
                 tasks.Add(Task.Run(async () =>
                 {
+                    var slotAcquired = false;
                     try
                     {
+                        await downloadSemaphore.WaitAsync(itemCts.Token);
+                        slotAcquired = true;
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (_isDownloadPaused || downloadItem.IsPaused)
+                            {
+                                SetDownloadStatus(downloadItem, "paused", "Pausado");
+                            }
+                            else
+                            {
+                                SetDownloadStatus(downloadItem, "downloading", "Baixando...");
+                            }
+                        });
+
                         var progress = new Progress<DownloadService.DownloadProgressInfo>(p =>
                         {
                             Dispatcher.Invoke(() =>
@@ -1556,6 +1645,11 @@ namespace MeuGestorVODs
                     }
                     finally
                     {
+                        if (slotAcquired)
+                        {
+                            downloadSemaphore.Release();
+                        }
+
                         itemCts.Dispose();
                         var done = Interlocked.Increment(ref completed);
                         Dispatcher.Invoke(() =>
@@ -1584,24 +1678,21 @@ namespace MeuGestorVODs
 
             StatusMessage = $"Iniciando download de {totalDownload} arquivo(s). Ja existentes: {skippedExisting}. Canais ao vivo ignorados: {selectedLive.Count}. Salvos na lista de canais: {addedLiveBySelection}.";
 
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                await Task.WhenAll(tasks);
+            }
+            finally
+            {
+                Dispatcher.Invoke(() =>
                 {
-                    await Task.WhenAll(tasks);
-                }
-                finally
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        _isDownloadRunning = false;
-                        _isDownloadPaused = false;
-                        _downloadPauseGate.Set();
-                        DownloadActionButtonText = "Baixar Selecionados";
-                        StatusMessage = $"Downloads finalizados. Sucesso: {success}, Falha: {failed}, Ja existentes: {skippedExisting}, Canais ao vivo ignorados: {selectedLive.Count}, Salvos na lista de canais: {addedLiveBySelection}.";
-                    });
-                }
-            });
+                    _isDownloadRunning = false;
+                    _isDownloadPaused = false;
+                    _downloadPauseGate.Set();
+                    DownloadActionButtonText = "Baixar Selecionados";
+                    StatusMessage = $"Downloads finalizados. Sucesso: {success}, Falha: {failed}, Ja existentes: {skippedExisting}, Canais ao vivo ignorados: {selectedLive.Count}, Salvos na lista de canais: {addedLiveBySelection}.";
+                });
+            }
         }
 
         private void RemoveDownloadItem_Click(object sender, RoutedEventArgs e)
@@ -2017,13 +2108,18 @@ namespace MeuGestorVODs
 
                 BuildGroupIndex(_allEntries);
 
-                var (newVod, newLive) = PersistLinkDatabases(entries);
+                var (newVod, newLive) = await PersistLinkDatabasesAsync(entries);
 
                 ApplyFilter();
                 
                 // Mostrar estatísticas do banco
-                var dbCount = _databaseService?.Entries.GetCountAsync().Result ?? 0;
-                var urlCount = _databaseService?.M3uUrls.GetAllAsync().Result.Count ?? 0;
+                var dbCount = 0;
+                var urlCount = 0;
+                if (_databaseService != null)
+                {
+                    dbCount = await _databaseService.Entries.GetCountAsync();
+                    urlCount = (await _databaseService.M3uUrls.GetAllAsync()).Count;
+                }
                 StatusMessage = $"Carregados {entries.Count} itens do arquivo local | SQLite: +{newVod} VOD, +{newLive} canais | Total no banco: {dbCount} | URLs: {urlCount}";
             }
             catch (Exception ex)
@@ -2072,6 +2168,7 @@ namespace MeuGestorVODs
             IsAnalyzingLinks = true;
             IsLoading = true;
             StatusMessage = "Iniciando IPTV Checker...";
+            DispatcherTimer? uiTimer = null;
 
             try
             {
@@ -2093,7 +2190,7 @@ namespace MeuGestorVODs
                 var queue = new ConcurrentQueue<StreamCheckItemResult>();
                 var logs = new ConcurrentQueue<StreamCheckLogEntry>();
 
-                var uiTimer = new DispatcherTimer
+                uiTimer = new DispatcherTimer
                 {
                     Interval = TimeSpan.FromMilliseconds(120)
                 };
@@ -2208,6 +2305,7 @@ namespace MeuGestorVODs
             }
             finally
             {
+                uiTimer?.Stop();
                 IsLoading = false;
                 IsAnalyzingLinks = false;
             }
@@ -2219,6 +2317,21 @@ namespace MeuGestorVODs
             if (total <= 10000) return 40;
             if (total <= 50000) return 56;
             return 72;
+        }
+
+        private static int ComputeDownloadParallelism(int total)
+        {
+            if (total <= 0)
+            {
+                return 1;
+            }
+
+            if (total <= 3)
+            {
+                return total;
+            }
+
+            return Math.Min(8, total);
         }
 
         private void RemoveDuplicates_Click(object sender, RoutedEventArgs e)
@@ -2353,7 +2466,7 @@ namespace MeuGestorVODs
             }
         }
 
-        private (int newVod, int newLive) PersistLinkDatabases(IEnumerable<M3UEntry> entries)
+        private async Task<(int newVod, int newLive)> PersistLinkDatabasesAsync(IEnumerable<M3UEntry> entries)
         {
             EnsureLinkDatabaseFiles();
 
@@ -2364,46 +2477,30 @@ namespace MeuGestorVODs
             var vodEntries = entries.Where(IsVodEntry).ToList();
             var liveEntries = entries.Where(e => !IsVodEntry(e)).ToList();
 
-            var newVodEntries = new List<M3UEntry>();
-            var newLiveEntries = new List<M3UEntry>();
+            var addedVodInSqlite = 0;
+            var addedLiveInSqlite = 0;
 
             // PASSO 1: Salvar no SQLite (banco principal)
             if (_databaseService != null)
             {
-                foreach (var entry in vodEntries)
-                {
-                    if (!_databaseService.Entries.ExistsByUrlAsync(entry.Url).Result)
-                    {
-                        _databaseService.Entries.AddAsync(entry).Wait();
-                        newVodEntries.Add(entry);
-                    }
-                }
-
-                foreach (var entry in liveEntries)
-                {
-                    if (!_databaseService.Entries.ExistsByUrlAsync(entry.Url).Result)
-                    {
-                        _databaseService.Entries.AddAsync(entry).Wait();
-                        newLiveEntries.Add(entry);
-                    }
-                }
+                addedVodInSqlite = await _databaseService.Entries.AddRangeAsync(vodEntries);
+                addedLiveInSqlite = await _databaseService.Entries.AddRangeAsync(liveEntries);
             }
             else
             {
-                // Fallback se banco não disponível: todas são novas
-                newVodEntries = vodEntries;
-                newLiveEntries = liveEntries;
+                // Fallback se banco não disponível
+                addedVodInSqlite = vodEntries.Count;
+                addedLiveInSqlite = liveEntries.Count;
             }
 
             // PASSO 2: Sincronizar com arquivos TXT (backup)
-            // Adiciona apenas as entradas que foram inseridas no SQLite
-            var addedVod = MergeEntriesIntoDatabase(vodFilePath, newVodEntries);
-            var addedLive = MergeEntriesIntoDatabase(liveFilePath, newLiveEntries);
+            _ = MergeEntriesIntoDatabase(vodFilePath, vodEntries);
+            _ = MergeEntriesIntoDatabase(liveFilePath, liveEntries);
 
-            return (addedVod, addedLive);
+            return (addedVodInSqlite, addedLiveInSqlite);
         }
 
-        private int RegisterSelectedLiveChannels(IEnumerable<M3UEntry> liveEntries)
+        private async Task<int> RegisterSelectedLiveChannelsAsync(IEnumerable<M3UEntry> liveEntries)
         {
             var normalizedEntries = liveEntries
                 .Where(e => !string.IsNullOrWhiteSpace(e.Url))
@@ -2419,13 +2516,7 @@ namespace MeuGestorVODs
 
             if (_databaseService != null)
             {
-                foreach (var entry in normalizedEntries)
-                {
-                    if (!_databaseService.Entries.ExistsByUrlAsync(entry.Url).Result)
-                    {
-                        _databaseService.Entries.AddAsync(entry).Wait();
-                    }
-                }
+                await _databaseService.Entries.AddRangeAsync(normalizedEntries);
             }
 
             var liveFilePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
@@ -2578,78 +2669,20 @@ namespace MeuGestorVODs
 
         private bool IsLiveEntry(M3UEntry entry)
         {
-            var category = (entry.Category ?? string.Empty).ToLowerInvariant();
-            var subCategory = (entry.SubCategory ?? string.Empty).ToLowerInvariant();
-            var groupTitle = (entry.GroupTitle ?? string.Empty).ToLowerInvariant();
-            var name = (entry.Name ?? string.Empty).ToLowerInvariant();
-            var url = (entry.Url ?? string.Empty).ToLowerInvariant();
-
-            var metadata = $"{category} {subCategory} {groupTitle} {name}";
-
-            var vodMetadataMarkers = new[]
-            {
-                "vod", "filme", "filmes", "movie", "series", "serie", "episodio", "episode", "temporada", "season"
-            };
-
-            var liveMetadataMarkers = new[]
-            {
-                "canal", "canais", "ao vivo", "tv ao vivo", "live tv", "channel", "24 horas", "24h"
-            };
-
-            var vodUrlMarkers = new[]
-            {
-                "/movie", "/series", "/vod/", "action=get_vod_stream", "action=get_series", "type=movie", "type=vod"
-            };
-
-            var liveUrlMarkers = new[]
-            {
-                "/live", "/channel", "/play/live", "channels", "action=get_live_stream", "stream/live", "type=live"
-            };
-
-            if (ContainsAny(url, vodUrlMarkers) || ContainsAny(metadata, vodMetadataMarkers) || IsVodFileUrl(url))
-            {
-                return false;
-            }
-
-            if (ContainsAny(metadata, liveMetadataMarkers) || ContainsAny(url, liveUrlMarkers))
+            var category = (entry.Category ?? string.Empty).Trim();
+            if (LiveCategoryNames.Contains(category))
             {
                 return true;
             }
 
-            if (Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri))
+            // Fallback apenas quando a categoria vier vazia.
+            if (string.IsNullOrWhiteSpace(category))
             {
-                var ext = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
-                if (ext is ".m3u8" or ".ts" or ".m3u" or ".mpd")
-                {
-                    return true;
-                }
+                var resolvedCategory = ResolveCategory(entry);
+                return LiveCategoryNames.Contains(resolvedCategory);
             }
 
             return false;
-        }
-
-        private static bool ContainsAny(string source, IEnumerable<string> markers)
-        {
-            foreach (var marker in markers)
-            {
-                if (source.Contains(marker, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool IsVodFileUrl(string url)
-        {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            {
-                return false;
-            }
-
-            var ext = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
-            return ext is ".mp4" or ".mkv" or ".avi" or ".mov" or ".wmv" or ".flv" or ".webm" or ".mpg" or ".mpeg";
         }
 
         private void EnsureAndLoadDownloadStructure()

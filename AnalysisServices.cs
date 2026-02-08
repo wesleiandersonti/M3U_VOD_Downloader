@@ -28,7 +28,7 @@ public sealed class StreamCheckItemResult
     public DateTime CheckedAt { get; init; } = DateTime.Now;
 }
 
-public class StreamCheckService
+public class StreamCheckService : IDisposable
 {
     private readonly HttpClient _httpClient;
 
@@ -151,6 +151,11 @@ public class StreamCheckService
         }
 
         return "desconhecido";
+    }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
     }
 }
 

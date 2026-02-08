@@ -269,7 +269,7 @@ public static class M3UParser
     }
 }
 
-public class M3UService
+public class M3UService : IDisposable
 {
     private readonly HttpClient _httpClient;
 
@@ -292,9 +292,14 @@ public class M3UService
     {
         return M3UParser.Parse(content);
     }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
+    }
 }
 
-public class DownloadService
+public class DownloadService : IDisposable
 {
     private readonly HttpClient _httpClient;
 
@@ -396,6 +401,11 @@ public class DownloadService
             });
         }
     }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
+    }
 }
 
 public class LinkCheckResult
@@ -404,7 +414,7 @@ public class LinkCheckResult
     public string Details { get; set; } = string.Empty;
 }
 
-public class LinkHealthService
+public class LinkHealthService : IDisposable
 {
     private readonly HttpClient _httpClient;
 
@@ -454,5 +464,10 @@ public class LinkHealthService
         {
             return new LinkCheckResult { IsOnline = false, Details = ex.Message };
         }
+    }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
     }
 }

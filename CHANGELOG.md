@@ -30,6 +30,23 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.15] - 2026-02-08
+
+### 🎉 Adicionado (Features)
+- **Player de vídeo local com LibVLCSharp**
+  - Janela popup com player profissional
+  - Suporte a HLS (m3u8), DASH, RTMP, RTSP, MP4, MPEG-TS
+  - Controles: Play/Pause, Stop, Volume
+  - Painel técnico mostrando:
+    - 📺 Nome do canal/filme/série
+    - 🌐 Servidor (hostname extraído da URL)
+    - ⚡ Latência (medida via Ping em tempo real)
+    - 🎞️ Formato do vídeo (detectado automaticamente)
+  - Botão "▶ Reproduzir" em downloads concluídos
+  - Interface escura moderna
+
+---
+
 ## [1.0.14] - 2026-02-08
 
 ### 🐛 Corrigido (Fixes)

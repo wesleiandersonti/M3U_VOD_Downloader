@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -77,6 +78,8 @@ namespace MeuGestorVODs
             "24 Horas"
         };
         private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
+        private const string UpdateManifestPrimaryUrl = "https://wesleiandersonti.github.io/MEU_GESTOR_DE_VODS/update.json";
+        private const string UpdateManifestFallbackUrl = "https://raw.githubusercontent.com/wesleiandersonti/MEU_GESTOR_DE_VODS/main/update.json";
         private readonly HttpClient _releaseClient = new HttpClient();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private bool _isUpdateInProgress;
@@ -2839,23 +2842,78 @@ namespace MeuGestorVODs
                 CurrentVersionText = $"Versao atual: {currentVersion}";
                 StatusMessage = "Verificando atualizacoes...";
 
-                var latest = await GetLatestReleaseAsync();
+                var manifest = await GetLatestUpdateManifestAsync();
+                if (manifest != null)
+                {
+                    if (!IsNewerRelease(manifest.Version, currentVersion))
+                    {
+                        System.Windows.MessageBox.Show(
+                            $"Voce ja esta na versao mais recente ({currentVersion}).\nVersao disponivel no manifesto: {manifest.Version}.",
+                            "Atualizacao",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        StatusMessage = "Aplicativo ja esta atualizado";
+                        return;
+                    }
+
+                    var notes = BuildManifestNotesPreview(manifest);
+                    var confirmManifest = System.Windows.MessageBox.Show(
+                        $"Nova versao encontrada: {manifest.Version}.\nVersao atual: {currentVersion}.\n\n" +
+                        $"Melhorias:\n{notes}\n\n" +
+                        "Deseja baixar e atualizar agora automaticamente?",
+                        "Atualizacao disponivel",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (confirmManifest != MessageBoxResult.Yes)
+                    {
+                        StatusMessage = "Atualizacao cancelada pelo usuario";
+                        return;
+                    }
+
+                    await InstallManifestAsync(manifest, "Atualizacao");
+                    return;
+                }
+
+                var latest = await GetLatestInstallableReleaseAsync();
                 if (latest == null)
                 {
-                    System.Windows.MessageBox.Show("Nao foi possivel obter informacoes da ultima versao.", "Atualizacao", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    StatusMessage = "Falha ao verificar atualizacoes";
+                    var latestTag = await GetLatestTagNameAsync();
+                    if (!string.IsNullOrWhiteSpace(latestTag) && IsNewerRelease(latestTag, currentVersion))
+                    {
+                        System.Windows.MessageBox.Show(
+                            $"Foi encontrada uma tag mais nova ({latestTag}), mas ainda sem release instalavel.\n\n" +
+                            "Publique uma release no GitHub com o instalador Setup.exe para aparecer na atualizacao automatica.",
+                            "Atualizacao",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        StatusMessage = "Tag nova encontrada, aguardando release instalavel";
+                    }
+                    else
+                    {
+                        System.Windows.MessageBox.Show("Nao foi possivel obter informacoes da ultima versao.", "Atualizacao", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        StatusMessage = "Falha ao verificar atualizacoes";
+                    }
+
                     return;
                 }
 
                 if (!IsNewerRelease(latest.TagName, currentVersion))
                 {
-                    System.Windows.MessageBox.Show($"Voce ja esta na versao mais recente ({currentVersion}).", "Atualizacao", MessageBoxButton.OK, MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show(
+                        $"Voce ja esta na versao mais recente ({currentVersion}).\nUltima release publicada: {latest.TagName}.",
+                        "Atualizacao",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                     StatusMessage = "Aplicativo ja esta atualizado";
                     return;
                 }
 
+                var releaseNotes = BuildReleaseNotesPreview(latest.Body);
                 var confirm = System.Windows.MessageBox.Show(
-                    $"Nova versao encontrada: {latest.TagName}.\n\nDeseja baixar e atualizar agora automaticamente?",
+                    $"Nova versao encontrada: {latest.TagName}.\nVersao atual: {currentVersion}.\n\n" +
+                    $"Melhorias:\n{releaseNotes}\n\n" +
+                    "Deseja baixar e atualizar agora automaticamente?",
                     "Atualizacao disponivel",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
@@ -2995,6 +3053,97 @@ namespace MeuGestorVODs
             System.Windows.Application.Current.Shutdown();
         }
 
+        private async Task InstallManifestAsync(UpdateManifest manifest, string operation)
+        {
+            if (!Uri.TryCreate(manifest.InstallerUrl, UriKind.Absolute, out var installerUri))
+            {
+                throw new InvalidOperationException("Manifesto de atualizacao sem URL valida de instalador.");
+            }
+
+            var fileName = Path.GetFileName(installerUri.LocalPath);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                fileName = $"MeuGestorVODs.Setup.{NormalizeTag(manifest.Version)}.exe";
+            }
+
+            var downloadPath = Path.Combine(Path.GetTempPath(), "MeuGestorVODs", fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(downloadPath)!);
+
+            StatusMessage = $"{operation}: baixando {manifest.Version}...";
+            await DownloadFileWithProgressAsync(manifest.InstallerUrl, downloadPath);
+
+            if (!string.IsNullOrWhiteSpace(manifest.Sha256))
+            {
+                var calculated = ComputeFileSha256(downloadPath);
+                if (!string.Equals(calculated, NormalizeHex(manifest.Sha256), StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Falha na validacao de integridade (SHA256 divergente).");
+                }
+            }
+
+            StatusMessage = $"{operation}: abrindo instalador...";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = downloadPath,
+                UseShellExecute = true
+            });
+
+            System.Windows.MessageBox.Show(
+                $"Instalador da versao {manifest.Version} aberto com sucesso.\n\nFinalize o assistente para concluir.",
+                operation,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        private async Task<UpdateManifest?> GetLatestUpdateManifestAsync()
+        {
+            var urls = new[] { UpdateManifestPrimaryUrl, UpdateManifestFallbackUrl };
+            foreach (var url in urls)
+            {
+                try
+                {
+                    using var response = await _releaseClient.GetAsync(url);
+                    response.EnsureSuccessStatusCode();
+                    var json = await response.Content.ReadAsStringAsync();
+                    var manifest = JsonSerializer.Deserialize<UpdateManifest>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (manifest == null)
+                    {
+                        continue;
+                    }
+
+                    manifest.Version = NormalizeTag(manifest.Version);
+                    if (string.IsNullOrWhiteSpace(manifest.Version) || string.IsNullOrWhiteSpace(manifest.InstallerUrl))
+                    {
+                        continue;
+                    }
+
+                    if (!Uri.TryCreate(manifest.InstallerUrl, UriKind.Absolute, out var installerUri))
+                    {
+                        continue;
+                    }
+
+                    if (!installerUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+                        !installerUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    return manifest;
+                }
+                catch
+                {
+                }
+            }
+
+            return null;
+        }
+
         private async Task DownloadFileWithProgressAsync(string url, string outputPath)
         {
             using var response = await _releaseClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
@@ -3025,12 +3174,63 @@ namespace MeuGestorVODs
             }
         }
 
+        private static string BuildManifestNotesPreview(UpdateManifest manifest)
+        {
+            if (manifest.Notes.Count > 0)
+            {
+                var selected = manifest.Notes
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => $"- {x.Trim()}")
+                    .Take(6)
+                    .ToList();
+
+                if (selected.Count > 0)
+                {
+                    return string.Join("\n", selected);
+                }
+            }
+
+            return BuildReleaseNotesPreview(manifest.Body);
+        }
+
+        private static string ComputeFileSha256(string filePath)
+        {
+            using var stream = File.OpenRead(filePath);
+            using var sha = SHA256.Create();
+            var hash = sha.ComputeHash(stream);
+            return Convert.ToHexString(hash);
+        }
+
+        private static string NormalizeHex(string value)
+        {
+            return value.Replace(" ", string.Empty).Replace("-", string.Empty).Trim();
+        }
+
         private async Task<GitHubRelease?> GetLatestReleaseAsync()
         {
-            using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases/latest");
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<GitHubRelease>(json);
+            try
+            {
+                using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases/latest");
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<GitHubRelease>(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<GitHubRelease?> GetLatestInstallableReleaseAsync()
+        {
+            var latest = await GetLatestReleaseAsync();
+            if (latest != null && HasSetupInstaller(latest))
+            {
+                return latest;
+            }
+
+            var releases = await GetStableReleasesAsync();
+            return releases.FirstOrDefault(HasSetupInstaller);
         }
 
         private async Task<List<GitHubRelease>> GetStableReleasesAsync()
@@ -3040,6 +3240,74 @@ namespace MeuGestorVODs
             var json = await response.Content.ReadAsStringAsync();
             var all = JsonSerializer.Deserialize<List<GitHubRelease>>(json) ?? new List<GitHubRelease>();
             return all.Where(r => !r.Draft && !r.Prerelease).ToList();
+        }
+
+        private async Task<string?> GetLatestTagNameAsync()
+        {
+            try
+            {
+                using var response = await _releaseClient.GetAsync($"{RepoApiBase}/tags?per_page=20");
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                var tags = JsonSerializer.Deserialize<List<GitHubTag>>(json) ?? new List<GitHubTag>();
+                return tags.FirstOrDefault()?.Name;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool HasSetupInstaller(GitHubRelease release)
+        {
+            return release.Assets.Any(a =>
+                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.Contains("Setup", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string BuildReleaseNotesPreview(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return "- Sem notas de melhorias publicadas.";
+            }
+
+            var selected = new List<string>();
+            var lines = body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal) || line.StartsWith("```", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal) || line.StartsWith("+ ", StringComparison.Ordinal))
+                {
+                    line = line[2..].Trim();
+                }
+                else if (line.Length > 3 && char.IsDigit(line[0]) && line[1] == '.' && line[2] == ' ')
+                {
+                    line = line[3..].Trim();
+                }
+
+                line = line.Replace("**", string.Empty).Replace("`", string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                selected.Add($"- {line}");
+                if (selected.Count >= 6)
+                {
+                    break;
+                }
+            }
+
+            return selected.Count == 0
+                ? "- Sem notas de melhorias publicadas."
+                : string.Join("\n", selected);
         }
 
         private static bool IsNewerRelease(string releaseTag, string currentVersion)
@@ -3178,6 +3446,9 @@ namespace MeuGestorVODs
             [JsonPropertyName("name")]
             public string Name { get; set; } = string.Empty;
 
+            [JsonPropertyName("body")]
+            public string Body { get; set; } = string.Empty;
+
             [JsonPropertyName("draft")]
             public bool Draft { get; set; }
 
@@ -3195,6 +3466,30 @@ namespace MeuGestorVODs
 
             [JsonPropertyName("browser_download_url")]
             public string BrowserDownloadUrl { get; set; } = string.Empty;
+        }
+
+        private sealed class GitHubTag
+        {
+            [JsonPropertyName("name")]
+            public string Name { get; set; } = string.Empty;
+        }
+
+        private sealed class UpdateManifest
+        {
+            [JsonPropertyName("version")]
+            public string Version { get; set; } = string.Empty;
+
+            [JsonPropertyName("installerUrl")]
+            public string InstallerUrl { get; set; } = string.Empty;
+
+            [JsonPropertyName("sha256")]
+            public string Sha256 { get; set; } = string.Empty;
+
+            [JsonPropertyName("notes")]
+            public List<string> Notes { get; set; } = new List<string>();
+
+            [JsonPropertyName("body")]
+            public string Body { get; set; } = string.Empty;
         }
 
         private async void OpenVodLinksTxt_Click(object sender, RoutedEventArgs e)

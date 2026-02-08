@@ -47,16 +47,43 @@
                 <Button Grid.Column="1"
                         x:Name="ThemeButton"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        Content="{Binding ThemeButtonText}"
-                        Padding="10,4"
+                        Width="44"
+                        Height="34"
+                        Padding="0"
                         Margin="10,0,0,0"
                         Click="ThemeButton_Click"
-                        ToolTip="Muda tema: Claro, Escuro ou Sistema">
+                        ToolTip="Menu">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="#F3F4F8"
+                                    BorderBrush="#E3E5EE"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    SnapsToDevicePixels="True">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#66000000" BlurRadius="10" ShadowDepth="2" Opacity="0.35"/>
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Button.Content>
+                        <Grid Width="20" Height="16">
+                            <Border Height="3" Width="18" CornerRadius="2" Background="#9AA0B8" VerticalAlignment="Top"/>
+                            <Border Height="3" Width="18" CornerRadius="2" Background="#9AA0B8" VerticalAlignment="Center"/>
+                            <Border Height="3" Width="18" CornerRadius="2" Background="#9AA0B8" VerticalAlignment="Bottom"/>
+                        </Grid>
+                    </Button.Content>
                     <Button.ContextMenu>
                         <ContextMenu>
+                            <MenuItem Header="Histórico de URLs" Click="ShowUrlHistory_Click"/>
+                            <Separator/>
                             <MenuItem Header="Tema Claro" Click="ThemeLight_Click"/>
                             <MenuItem Header="Tema Escuro" Click="ThemeDark_Click"/>
                             <MenuItem Header="Tema do Sistema" Click="ThemeSystem_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Estatísticas BD" Click="ShowDatabaseStats_Click"/>
+                            <MenuItem Header="GitHub" Click="OpenGitHub_Click"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

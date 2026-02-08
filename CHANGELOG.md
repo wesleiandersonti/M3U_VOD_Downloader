@@ -30,6 +30,24 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.21] - 2026-02-08
+
+### 🎉 Adicionado (Features)
+- **Barra de título customizada com controles de janela**
+  - Janela agora usa `WindowChrome` com botões internos de minimizar, maximizar/restaurar e fechar.
+  - Suporte a arrastar janela pelo cabeçalho e duplo clique para maximizar/restaurar.
+- **Alternância de tema no cabeçalho**
+  - Botão `Tema` com opções: Claro, Escuro e Sistema.
+  - Aplicação dinâmica de brushes para fundo, painéis, status e cabeçalho.
+
+### 🔄 Melhorado (UX/UI)
+- **Tooltips funcionais em todos os botões principais**
+  - Explicação de funcionalidade ao passar o mouse.
+- **Drop de lista local mais confiável**
+  - Ajuste de `Drop` com `Handled` e fallback para arquivos existentes de apps externos.
+
+---
+
 ## [1.0.20] - 2026-02-08
 
 ### 🎉 Adicionado (Features)

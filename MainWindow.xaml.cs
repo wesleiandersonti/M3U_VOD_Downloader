@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -40,6 +41,13 @@ namespace MeuGestorVODs
             Maximized
         }
 
+        private enum AppThemeMode
+        {
+            System,
+            Light,
+            Dark
+        }
+
         private string _m3uUrl = "";
         private string _downloadPath = "";
         private string _filterText = "";
@@ -52,6 +60,7 @@ namespace MeuGestorVODs
         private string _analysisProgressText = "Pronto para analisar";
         private string _analysisSummaryText = "Analisados: 0 | ONLINE: 0 | OFFLINE: 0 | Duplicados: 0";
         private string _selectedAnalysisFilter = "Todos";
+        private string _themeButtonText = "Tema: Sistema";
         private Visibility _groupPanelVisibility = Visibility.Collapsed;
         private bool _isLoading = false;
         private bool _isAnalyzingLinks;
@@ -169,6 +178,12 @@ namespace MeuGestorVODs
             }
         }
 
+        public string ThemeButtonText
+        {
+            get => _themeButtonText;
+            set { _themeButtonText = value; OnPropertyChanged(nameof(ThemeButtonText)); }
+        }
+
         public double AnalysisProgressValue
         {
             get => _analysisProgressValue;
@@ -217,6 +232,7 @@ namespace MeuGestorVODs
         private LinkCheckScheduleMode _linkCheckMode = LinkCheckScheduleMode.Manual;
         private bool _isRunningScheduledCheck;
         private MonitorPanelLayout _monitorPanelLayout = MonitorPanelLayout.Normal;
+        private AppThemeMode _appThemeMode = AppThemeMode.System;
 
         public MainWindow()
         {
@@ -240,7 +256,10 @@ namespace MeuGestorVODs
             SelectedAnalysisFilter = "Todos";
 
             _linkCheckTimer.Tick += LinkCheckTimer_Tick;
+            StateChanged += (_, _) => UpdateWindowStateButton();
             ApplyMonitorPanelLayout(MonitorPanelLayout.Normal);
+            ApplyTheme(AppThemeMode.System, updateStatus: false);
+            UpdateWindowStateButton();
         }
 
         private void InitializeDatabase()
@@ -797,6 +816,165 @@ namespace MeuGestorVODs
             }
         }
 
+        private void ThemeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button || button.ContextMenu == null)
+            {
+                return;
+            }
+
+            button.ContextMenu.PlacementTarget = button;
+            button.ContextMenu.IsOpen = true;
+        }
+
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            if (e.ClickCount == 2)
+            {
+                ToggleMaximizeRestore();
+                return;
+            }
+
+            try
+            {
+                DragMove();
+            }
+            catch
+            {
+                // Ignore drag exceptions when mouse state changes abruptly.
+            }
+        }
+
+        private void MinimizeWindow_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void MaximizeRestoreWindow_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleMaximizeRestore();
+        }
+
+        private void CloseWindow_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        private void ToggleMaximizeRestore()
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            UpdateWindowStateButton();
+        }
+
+        private void UpdateWindowStateButton()
+        {
+            if (MaximizeRestoreWindowButton == null)
+            {
+                return;
+            }
+
+            if (WindowState == WindowState.Maximized)
+            {
+                MaximizeRestoreWindowButton.Content = "❐";
+                MaximizeRestoreWindowButton.ToolTip = "Restaurar janela";
+            }
+            else
+            {
+                MaximizeRestoreWindowButton.Content = "▢";
+                MaximizeRestoreWindowButton.ToolTip = "Maximizar janela";
+            }
+        }
+
+        private void ThemeLight_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyTheme(AppThemeMode.Light, updateStatus: true);
+        }
+
+        private void ThemeDark_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyTheme(AppThemeMode.Dark, updateStatus: true);
+        }
+
+        private void ThemeSystem_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyTheme(AppThemeMode.System, updateStatus: true);
+        }
+
+        private void ApplyTheme(AppThemeMode mode, bool updateStatus)
+        {
+            _appThemeMode = mode;
+            var useDark = mode == AppThemeMode.Dark || (mode == AppThemeMode.System && IsSystemDarkTheme());
+
+            if (useDark)
+            {
+                SetThemeResource("AppBackgroundBrush", System.Windows.Media.Color.FromRgb(30, 30, 30));
+                SetThemeResource("PanelBackgroundBrush", System.Windows.Media.Color.FromRgb(45, 45, 48));
+                SetThemeResource("StatusBackgroundBrush", System.Windows.Media.Color.FromRgb(37, 37, 38));
+                SetThemeResource("BaseTextBrush", System.Windows.Media.Color.FromRgb(236, 236, 241));
+                SetThemeResource("HeaderBackgroundBrush", System.Windows.Media.Color.FromRgb(31, 41, 55));
+                SetThemeResource("HeaderForegroundBrush", System.Windows.Media.Color.FromRgb(243, 244, 246));
+            }
+            else
+            {
+                SetThemeResource("AppBackgroundBrush", System.Windows.Media.Color.FromRgb(255, 255, 255));
+                SetThemeResource("PanelBackgroundBrush", System.Windows.Media.Color.FromRgb(245, 245, 245));
+                SetThemeResource("StatusBackgroundBrush", System.Windows.Media.Color.FromRgb(240, 240, 240));
+                SetThemeResource("BaseTextBrush", System.Windows.Media.Color.FromRgb(17, 17, 17));
+                SetThemeResource("HeaderBackgroundBrush", System.Windows.Media.Color.FromRgb(0, 122, 204));
+                SetThemeResource("HeaderForegroundBrush", System.Windows.Media.Color.FromRgb(255, 255, 255));
+            }
+
+            ThemeButtonText = mode switch
+            {
+                AppThemeMode.Light => "Tema: Claro",
+                AppThemeMode.Dark => "Tema: Escuro",
+                _ => "Tema: Sistema"
+            };
+
+            if (updateStatus)
+            {
+                var label = mode switch
+                {
+                    AppThemeMode.Light => "Claro",
+                    AppThemeMode.Dark => "Escuro",
+                    _ => useDark ? "Sistema (escuro)" : "Sistema (claro)"
+                };
+                StatusMessage = $"Tema aplicado: {label}";
+            }
+        }
+
+        private void SetThemeResource(string key, System.Windows.Media.Color color)
+        {
+            Resources[key] = new System.Windows.Media.SolidColorBrush(color);
+        }
+
+        private static bool IsSystemDarkTheme()
+        {
+            try
+            {
+                var value = Registry.GetValue(
+                    @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                    "AppsUseLightTheme",
+                    1);
+
+                if (value is int intValue)
+                {
+                    return intValue == 0;
+                }
+            }
+            catch
+            {
+                // fallback abaixo
+            }
+
+            return false;
+        }
+
         private void GroupsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (e.NewValue is GroupListItem group)
@@ -1265,6 +1443,7 @@ namespace MeuGestorVODs
 
             LocalFilePath = filePath;
             StatusMessage = $"Arquivo local recebido por arrastar e soltar: {Path.GetFileName(LocalFilePath)}";
+            e.Handled = true;
         }
 
         private static bool TryGetDroppedSupportedFile(System.Windows.IDataObject dataObject, out string filePath)
@@ -1282,9 +1461,9 @@ namespace MeuGestorVODs
                         return true;
                     }
 
-                    // fallback: aceitar o primeiro arquivo existente quando vier de apps externos
+                    // fallback: aceitar o primeiro arquivo existente (inclusive sem extensao padrao)
                     var firstExisting = files.FirstOrDefault(File.Exists);
-                    if (!string.IsNullOrWhiteSpace(firstExisting) && LooksLikePlaylistFile(firstExisting))
+                    if (!string.IsNullOrWhiteSpace(firstExisting))
                     {
                         filePath = firstExisting;
                         return true;
@@ -1397,23 +1576,6 @@ namespace MeuGestorVODs
                 || ext.Equals(".zpl", StringComparison.OrdinalIgnoreCase)
                 || ext.Equals(".vlc", StringComparison.OrdinalIgnoreCase)
                 || ext.Equals(".url", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool LooksLikePlaylistFile(string path)
-        {
-            var ext = Path.GetExtension(path);
-            if (ext.Equals(".xspf", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".pls", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".asx", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".wpl", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".zpl", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".vlc", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".url", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return IsSupportedPlaylistFile(path);
         }
 
         private async void LoadLocalFile_Click(object sender, RoutedEventArgs e)

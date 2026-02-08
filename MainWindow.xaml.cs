@@ -23,6 +23,7 @@ namespace MeuGestorVODs
         private string _m3uUrl = "";
         private string _downloadPath = "";
         private string _filterText = "";
+        private string _localFilePath = "";
         private string _statusMessage = "Pronto";
         private string _currentVersionText = "Versao atual: -";
         private string _itemCountText = "Itens: 0";
@@ -57,6 +58,12 @@ namespace MeuGestorVODs
         {
             get => _downloadPath;
             set { _downloadPath = value; OnPropertyChanged(nameof(DownloadPath)); }
+        }
+
+        public string LocalFilePath
+        {
+            get => _localFilePath;
+            set { _localFilePath = value; OnPropertyChanged(nameof(LocalFilePath)); }
         }
 
         public string FilterText
@@ -875,6 +882,90 @@ namespace MeuGestorVODs
                 
                 EnsureLinkDatabaseFiles();
                 StatusMessage = $"Banco de dados SQLite carregado em: {Path.Combine(DownloadPath, "database.sqlite")}";
+            }
+        }
+
+        private void BrowseLocalFile_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Filter = "Arquivos M3U/M3U8/TXT|*.m3u;*.m3u8;*.txt|Todos os arquivos|*.*",
+                Title = "Selecionar arquivo de playlist",
+                CheckFileExists = true,
+                CheckPathExists = true
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                LocalFilePath = dialog.FileName;
+                StatusMessage = $"Arquivo selecionado: {Path.GetFileName(LocalFilePath)}";
+            }
+        }
+
+        private async void LoadLocalFile_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(LocalFilePath))
+            {
+                System.Windows.MessageBox.Show("Por favor, selecione um arquivo primeiro.", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!File.Exists(LocalFilePath))
+            {
+                System.Windows.MessageBox.Show("Arquivo não encontrado.", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                IsLoading = true;
+                StatusMessage = "Carregando arquivo local...";
+                
+                var content = await File.ReadAllTextAsync(LocalFilePath);
+                var entries = _m3uService.ParseFromString(content);
+
+                _allEntries.Clear();
+                _allEntries.AddRange(entries);
+
+                _selectedCategoryFilter = null;
+                _selectedGroupKeyFilter = null;
+                GroupFilterInfoText = string.Empty;
+
+                Entries.Clear();
+                foreach (var entry in _allEntries)
+                {
+                    Entries.Add(entry);
+                }
+
+                BuildGroupIndex(_allEntries);
+
+                var (newVod, newLive) = PersistLinkDatabases(entries);
+                
+                // Salvar no histórico como arquivo local
+                if (_databaseService != null)
+                {
+                    await _databaseService.M3uUrls.SaveOrUpdateAsync(
+                        $"[LOCAL] {LocalFilePath}", 
+                        $"Arquivo local carregado em {DateTime.Now:dd/MM/yyyy HH:mm}", 
+                        isOnline: true, 
+                        entryCount: entries.Count);
+                }
+                
+                ApplyFilter();
+                
+                // Mostrar estatísticas do banco
+                var dbCount = _databaseService?.Entries.GetCountAsync().Result ?? 0;
+                var urlCount = _databaseService?.M3uUrls.GetAllAsync().Result.Count ?? 0;
+                StatusMessage = $"Carregados {entries.Count} itens do arquivo local | SQLite: +{newVod} VOD, +{newLive} canais | Total no banco: {dbCount} | URLs: {urlCount}";
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Erro ao carregar arquivo: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "Erro ao carregar arquivo";
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 

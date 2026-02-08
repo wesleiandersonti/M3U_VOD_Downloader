@@ -141,6 +141,11 @@ public class M3UService
         var content = await response.Content.ReadAsStringAsync();
         return M3UParser.Parse(content);
     }
+
+    public List<M3UEntry> ParseFromString(string content)
+    {
+        return M3UParser.Parse(content);
+    }
 }
 
 public class DownloadService

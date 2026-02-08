@@ -100,6 +100,11 @@
                                  Text="{Binding LocalFilePath}"
                                  Padding="5"
                                  IsReadOnly="True"
+                                 AllowDrop="True"
+                                 DragEnter="LocalFileDropZone_DragEnter"
+                                 DragOver="LocalFileDropZone_DragOver"
+                                 DragLeave="LocalFileDropZone_DragLeave"
+                                 Drop="LocalFileDropZone_Drop"
                                  BorderThickness="0"
                                  Background="Transparent"/>
                         <TextBlock Text="Arraste e solte sua lista aqui..."
@@ -149,11 +154,11 @@
         </Grid>
 
         <!-- Main Content -->
-        <Grid Grid.Row="2" Margin="10,5">
+        <Grid Grid.Row="2" Margin="10,5" x:Name="MainContentGrid">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="10"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition x:Name="EntriesColumn" Width="2*"/>
+                <ColumnDefinition x:Name="CenterSpacerColumn" Width="10"/>
+                <ColumnDefinition x:Name="MonitorColumn" Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left Panel - Entries -->
@@ -245,7 +250,19 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Monitoramento" FontWeight="Bold" FontSize="14" Margin="10"/>
+                    <Border Grid.Row="0" Background="#F7F7F7" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="8,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Monitoramento" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="—" Width="24" Height="20" Margin="0,0,4,0" Click="MonitorMinimize_Click" ToolTip="Minimizar painel"/>
+                                <Button Content="□" Width="24" Height="20" Click="MonitorMaximize_Click" ToolTip="Maximizar painel"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
                     <TabControl Grid.Row="1" Margin="6">
                         <TabItem Header="Downloads">

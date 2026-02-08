@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -30,6 +31,13 @@ namespace MeuGestorVODs
             Every3Hours,
             Every6Hours,
             Every12Hours
+        }
+
+        private enum MonitorPanelLayout
+        {
+            Normal,
+            Minimized,
+            Maximized
         }
 
         private string _m3uUrl = "";
@@ -208,6 +216,7 @@ namespace MeuGestorVODs
         private readonly DispatcherTimer _linkCheckTimer = new DispatcherTimer();
         private LinkCheckScheduleMode _linkCheckMode = LinkCheckScheduleMode.Manual;
         private bool _isRunningScheduledCheck;
+        private MonitorPanelLayout _monitorPanelLayout = MonitorPanelLayout.Normal;
 
         public MainWindow()
         {
@@ -231,6 +240,7 @@ namespace MeuGestorVODs
             SelectedAnalysisFilter = "Todos";
 
             _linkCheckTimer.Tick += LinkCheckTimer_Tick;
+            ApplyMonitorPanelLayout(MonitorPanelLayout.Normal);
         }
 
         private void InitializeDatabase()
@@ -740,6 +750,53 @@ namespace MeuGestorVODs
                 : "Painel de grupos fechado";
         }
 
+        private void MonitorMinimize_Click(object sender, RoutedEventArgs e)
+        {
+            var target = _monitorPanelLayout == MonitorPanelLayout.Minimized
+                ? MonitorPanelLayout.Normal
+                : MonitorPanelLayout.Minimized;
+
+            ApplyMonitorPanelLayout(target);
+        }
+
+        private void MonitorMaximize_Click(object sender, RoutedEventArgs e)
+        {
+            var target = _monitorPanelLayout == MonitorPanelLayout.Maximized
+                ? MonitorPanelLayout.Normal
+                : MonitorPanelLayout.Maximized;
+
+            ApplyMonitorPanelLayout(target);
+        }
+
+        private void ApplyMonitorPanelLayout(MonitorPanelLayout layout)
+        {
+            _monitorPanelLayout = layout;
+
+            switch (layout)
+            {
+                case MonitorPanelLayout.Minimized:
+                    EntriesColumn.Width = new GridLength(1, GridUnitType.Star);
+                    CenterSpacerColumn.Width = new GridLength(8, GridUnitType.Pixel);
+                    MonitorColumn.Width = new GridLength(280, GridUnitType.Pixel);
+                    StatusMessage = "Painel de monitoramento minimizado";
+                    break;
+
+                case MonitorPanelLayout.Maximized:
+                    EntriesColumn.Width = new GridLength(1, GridUnitType.Star);
+                    CenterSpacerColumn.Width = new GridLength(10, GridUnitType.Pixel);
+                    MonitorColumn.Width = new GridLength(2, GridUnitType.Star);
+                    StatusMessage = "Painel de monitoramento maximizado";
+                    break;
+
+                default:
+                    EntriesColumn.Width = new GridLength(2, GridUnitType.Star);
+                    CenterSpacerColumn.Width = new GridLength(10, GridUnitType.Pixel);
+                    MonitorColumn.Width = new GridLength(1, GridUnitType.Star);
+                    StatusMessage = "Painel de monitoramento restaurado";
+                    break;
+            }
+        }
+
         private void GroupsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (e.NewValue is GroupListItem group)
@@ -1158,7 +1215,7 @@ namespace MeuGestorVODs
         {
             var dialog = new System.Windows.Forms.OpenFileDialog
             {
-                Filter = "Arquivos M3U/M3U8/TXT|*.m3u;*.m3u8;*.txt|Todos os arquivos|*.*",
+                Filter = "Playlists IPTV/VLC|*.m3u;*.m3u8;*.txt;*.xspf;*.pls;*.asx;*.wpl;*.zpl;*.vlc;*.url|Todos os arquivos|*.*",
                 Title = "Selecionar arquivo de playlist",
                 CheckFileExists = true,
                 CheckPathExists = true
@@ -1214,24 +1271,112 @@ namespace MeuGestorVODs
         {
             filePath = string.Empty;
 
-            if (!dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            {
+                if (dataObject.GetData(System.Windows.DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    var candidate = files.FirstOrDefault(IsSupportedPlaylistFile);
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        filePath = candidate;
+                        return true;
+                    }
+
+                    // fallback: aceitar o primeiro arquivo existente quando vier de apps externos
+                    var firstExisting = files.FirstOrDefault(File.Exists);
+                    if (!string.IsNullOrWhiteSpace(firstExisting) && LooksLikePlaylistFile(firstExisting))
+                    {
+                        filePath = firstExisting;
+                        return true;
+                    }
+                }
+            }
+
+            var textPayload = (dataObject.GetData(System.Windows.DataFormats.UnicodeText) as string)
+                              ?? (dataObject.GetData(System.Windows.DataFormats.Text) as string)
+                              ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(textPayload))
             {
                 return false;
             }
 
-            if (dataObject.GetData(System.Windows.DataFormats.FileDrop) is not string[] files || files.Length == 0)
+            foreach (var part in textPayload
+                         .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                         .Select(x => x.Trim().Trim('"')))
             {
-                return false;
+                if (string.IsNullOrWhiteSpace(part))
+                {
+                    continue;
+                }
+
+                var localPath = NormalizePotentialLocalPath(part);
+                if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath) && IsSupportedPlaylistFile(localPath))
+                {
+                    filePath = localPath;
+                    return true;
+                }
             }
 
-            var candidate = files.FirstOrDefault(IsSupportedPlaylistFile);
-            if (string.IsNullOrWhiteSpace(candidate))
+            return false;
+        }
+
+        private static string NormalizePotentialLocalPath(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
             {
-                return false;
+                return string.Empty;
             }
 
-            filePath = candidate;
-            return true;
+            var trimmed = value.Trim().Trim('"');
+
+            if (trimmed.StartsWith("file:///", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(trimmed, UriKind.Absolute, out var fileUri) && fileUri.IsFile)
+            {
+                return fileUri.LocalPath;
+            }
+
+            return trimmed;
+        }
+
+        private List<M3UEntry> ParseLocalPlaylistContent(string content, string filePath)
+        {
+            var parsed = _m3uService.ParseFromString(content);
+            if (parsed.Count > 0)
+            {
+                return parsed;
+            }
+
+            var urls = Regex.Matches(content, "https?://[^\\s\\\"'<>]+", RegexOptions.IgnoreCase)
+                .Select(x => x.Value.Trim())
+                .Where(x => Uri.TryCreate(x, UriKind.Absolute, out _))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (urls.Count == 0)
+            {
+                return new List<M3UEntry>();
+            }
+
+            var baseName = Path.GetFileNameWithoutExtension(filePath);
+            var result = new List<M3UEntry>(urls.Count);
+
+            for (var i = 0; i < urls.Count; i++)
+            {
+                var url = urls[i];
+                result.Add(new M3UEntry
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    TvgId = string.Empty,
+                    Name = $"{baseName} {i + 1}",
+                    Url = url,
+                    GroupTitle = "Importado Local",
+                    Category = "Importado",
+                    SubCategory = "Playlist Local",
+                    LogoUrl = string.Empty
+                });
+            }
+
+            return result;
         }
 
         private static bool IsSupportedPlaylistFile(string? path)
@@ -1244,7 +1389,31 @@ namespace MeuGestorVODs
             var ext = Path.GetExtension(path);
             return ext.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
                 || ext.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
-                || ext.Equals(".txt", StringComparison.OrdinalIgnoreCase);
+                || ext.Equals(".txt", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".xspf", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".pls", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".asx", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".wpl", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".zpl", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".vlc", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".url", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool LooksLikePlaylistFile(string path)
+        {
+            var ext = Path.GetExtension(path);
+            if (ext.Equals(".xspf", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".pls", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".asx", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".wpl", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".zpl", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".vlc", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".url", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return IsSupportedPlaylistFile(path);
         }
 
         private async void LoadLocalFile_Click(object sender, RoutedEventArgs e)
@@ -1267,7 +1436,18 @@ namespace MeuGestorVODs
                 StatusMessage = "Carregando arquivo local...";
                 
                 var content = await File.ReadAllTextAsync(LocalFilePath);
-                var entries = _m3uService.ParseFromString(content);
+                var entries = ParseLocalPlaylistContent(content, LocalFilePath);
+                if (entries.Count == 0)
+                {
+                    System.Windows.MessageBox.Show(
+                        "Não foi possível extrair links desta playlist local.\n\n" +
+                        "Formatos suportados: M3U/M3U8/TXT e playlists VLC (XSPF/PLS/ASX/WPL/ZPL/URL).",
+                        "Arquivo local",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    StatusMessage = "Nenhum link encontrado na playlist local";
+                    return;
+                }
                 InitializeEntryAnalysisFields(entries);
 
                 _allEntries.Clear();
@@ -2568,25 +2748,19 @@ namespace MeuGestorVODs
             {
                 var totalCount = await _databaseService.Entries.GetCountAsync();
                 var allEntries = await _databaseService.Entries.GetAllAsync();
-                
+
                 var categories = allEntries
                     .GroupBy(x => x.Category)
                     .OrderByDescending(g => g.Count())
                     .Take(10)
-                    .Select(g => $"  {g.Key}: {g.Count()}")
+                    .Select(g => new CategoryStatRow
+                    {
+                        Category = g.Key,
+                        Count = g.Count()
+                    })
                     .ToList();
 
-                var stats = $"📊 ESTATÍSTICAS DO BANCO DE DADOS SQLite\n\n" +
-                           $"Total de entradas: {totalCount}\n\n" +
-                           $"📁 Top 10 Categorias:\n" +
-                           string.Join("\n", categories) + "\n\n" +
-                           $"📍 Local do banco:\n{Path.Combine(DownloadPath, "database.sqlite")}";
-
-                System.Windows.MessageBox.Show(
-                    stats,
-                    "Estatísticas do Banco de Dados",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                ShowDatabaseStatsWindow(totalCount, categories, Path.Combine(DownloadPath, "database.sqlite"));
 
                 StatusMessage = $"Banco SQLite: {totalCount} entradas registradas";
             }
@@ -2598,6 +2772,152 @@ namespace MeuGestorVODs
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
+        }
+
+        private void ShowDatabaseStatsWindow(int totalCount, List<CategoryStatRow> categories, string dbPath)
+        {
+            var window = new System.Windows.Window
+            {
+                Title = "Estatísticas do Banco de Dados",
+                Width = 620,
+                Height = 500,
+                MinWidth = 560,
+                MinHeight = 420,
+                WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner,
+                ResizeMode = System.Windows.ResizeMode.CanResize,
+                Owner = this,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 246, 248))
+            };
+
+            var root = new System.Windows.Controls.Grid { Margin = new System.Windows.Thickness(14) };
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            root.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = System.Windows.GridLength.Auto });
+
+            var title = new System.Windows.Controls.TextBlock
+            {
+                Text = "Estatísticas do Banco de Dados SQLite",
+                FontSize = 18,
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 48, 75)),
+                Margin = new System.Windows.Thickness(0, 0, 0, 10)
+            };
+            System.Windows.Controls.Grid.SetRow(title, 0);
+            root.Children.Add(title);
+
+            var summaryBorder = new System.Windows.Controls.Border
+            {
+                BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(210, 214, 220)),
+                BorderThickness = new System.Windows.Thickness(1),
+                Background = System.Windows.Media.Brushes.White,
+                CornerRadius = new System.Windows.CornerRadius(6),
+                Padding = new System.Windows.Thickness(12),
+                Margin = new System.Windows.Thickness(0, 0, 0, 10)
+            };
+            var summaryGrid = new System.Windows.Controls.Grid();
+            summaryGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(180) });
+            summaryGrid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            summaryGrid.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = "Total de entradas:",
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
+            });
+            summaryGrid.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = totalCount.ToString("N0"),
+                FontSize = 22,
+                FontWeight = System.Windows.FontWeights.Bold,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 125, 50)),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center
+            });
+            System.Windows.Controls.Grid.SetColumn(summaryGrid.Children[1], 1);
+            summaryBorder.Child = summaryGrid;
+            System.Windows.Controls.Grid.SetRow(summaryBorder, 1);
+            root.Children.Add(summaryBorder);
+
+            var section = new System.Windows.Controls.TextBlock
+            {
+                Text = "Top 10 Categorias",
+                FontWeight = System.Windows.FontWeights.SemiBold,
+                FontSize = 13,
+                Margin = new System.Windows.Thickness(0, 0, 0, 6)
+            };
+            System.Windows.Controls.Grid.SetRow(section, 2);
+            root.Children.Add(section);
+
+            var grid = new System.Windows.Controls.DataGrid
+            {
+                ItemsSource = categories,
+                AutoGenerateColumns = false,
+                IsReadOnly = true,
+                CanUserAddRows = false,
+                HeadersVisibility = System.Windows.Controls.DataGridHeadersVisibility.Column,
+                GridLinesVisibility = System.Windows.Controls.DataGridGridLinesVisibility.Horizontal,
+                RowHeaderWidth = 0,
+                Margin = new System.Windows.Thickness(0, 0, 0, 10)
+            };
+
+            grid.Columns.Add(new System.Windows.Controls.DataGridTextColumn
+            {
+                Header = "Categoria",
+                Binding = new System.Windows.Data.Binding(nameof(CategoryStatRow.Category)),
+                Width = new System.Windows.Controls.DataGridLength(1, System.Windows.Controls.DataGridLengthUnitType.Star)
+            });
+
+            grid.Columns.Add(new System.Windows.Controls.DataGridTextColumn
+            {
+                Header = "Quantidade",
+                Binding = new System.Windows.Data.Binding(nameof(CategoryStatRow.Count)) { StringFormat = "N0" },
+                Width = 140,
+                ElementStyle = new System.Windows.Style(typeof(System.Windows.Controls.TextBlock))
+                {
+                    Setters =
+                    {
+                        new System.Windows.Setter(System.Windows.Controls.TextBlock.TextAlignmentProperty, System.Windows.TextAlignment.Right),
+                        new System.Windows.Setter(System.Windows.Controls.TextBlock.HorizontalAlignmentProperty, System.Windows.HorizontalAlignment.Right)
+                    }
+                }
+            });
+
+            System.Windows.Controls.Grid.SetRow(grid, 3);
+            root.Children.Add(grid);
+
+            var footer = new System.Windows.Controls.Grid { Margin = new System.Windows.Thickness(0, 4, 0, 0) };
+            footer.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new System.Windows.GridLength(1, System.Windows.GridUnitType.Star) });
+            footer.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = System.Windows.GridLength.Auto });
+
+            var dbPathText = new System.Windows.Controls.TextBlock
+            {
+                Text = $"Local do banco: {dbPath}",
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(85, 90, 96)),
+                TextTrimming = System.Windows.TextTrimming.CharacterEllipsis,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                ToolTip = dbPath
+            };
+            System.Windows.Controls.Grid.SetColumn(dbPathText, 0);
+            footer.Children.Add(dbPathText);
+
+            var closeButton = new System.Windows.Controls.Button
+            {
+                Content = "Fechar",
+                MinWidth = 90,
+                Padding = new System.Windows.Thickness(10, 4, 10, 4),
+                Margin = new System.Windows.Thickness(8, 0, 0, 0),
+                IsDefault = true
+            };
+            closeButton.Click += (_, _) => window.Close();
+            System.Windows.Controls.Grid.SetColumn(closeButton, 1);
+            footer.Children.Add(closeButton);
+
+            System.Windows.Controls.Grid.SetRow(footer, 4);
+            root.Children.Add(footer);
+
+            window.Content = root;
+            window.ShowDialog();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -2620,6 +2940,12 @@ namespace MeuGestorVODs
         public string GroupKey { get; set; } = string.Empty;
         public int ChannelCount { get; set; }
         public string DisplayName => $"{GroupName} ({ChannelCount})";
+    }
+
+    public class CategoryStatRow
+    {
+        public string Category { get; set; } = string.Empty;
+        public int Count { get; set; }
     }
 
     public class DownloadItem : INotifyPropertyChanged

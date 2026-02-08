@@ -30,6 +30,24 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.20] - 2026-02-08
+
+### 🎉 Adicionado (Features)
+- **Controles de painel no Monitoramento**
+  - Botão `—` para minimizar e `□` para maximizar o painel de monitoramento sem abrir nova janela.
+  - Layout interno com alternância entre normal/minimizado/maximizado.
+
+### 🔄 Melhorado (UX/UI)
+- **Estatísticas do Banco de Dados com visual alinhado**
+  - Janela dedicada com total em destaque, grade de Top 10 categorias e colunas alinhadas.
+  - Quantidades formatadas e alinhadas à direita para leitura rápida.
+- **Drag-and-drop da lista local mais robusto**
+  - Drop funciona em toda a área, inclusive no campo interno.
+  - Suporte ampliado para playlists VLC/IPTV: `.m3u`, `.m3u8`, `.txt`, `.xspf`, `.pls`, `.asx`, `.wpl`, `.zpl`, `.vlc`, `.url`.
+  - Fallback para extração de URLs HTTP em playlists não-M3U.
+
+---
+
 ## [1.0.19] - 2026-02-08
 
 ### 🎉 Adicionado (Features)

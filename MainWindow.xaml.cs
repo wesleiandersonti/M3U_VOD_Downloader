@@ -61,6 +61,7 @@ namespace MeuGestorVODs
         private string _analysisSummaryText = "Analisados: 0 | ONLINE: 0 | OFFLINE: 0 | Duplicados: 0";
         private string _selectedAnalysisFilter = "Todos";
         private string _themeButtonText = "Tema: Sistema";
+        private string _downloadActionButtonText = "Baixar Selecionados";
         private Visibility _groupPanelVisibility = Visibility.Collapsed;
         private bool _isLoading = false;
         private bool _isAnalyzingLinks;
@@ -184,6 +185,12 @@ namespace MeuGestorVODs
             set { _themeButtonText = value; OnPropertyChanged(nameof(ThemeButtonText)); }
         }
 
+        public string DownloadActionButtonText
+        {
+            get => _downloadActionButtonText;
+            set { _downloadActionButtonText = value; OnPropertyChanged(nameof(DownloadActionButtonText)); }
+        }
+
         public double AnalysisProgressValue
         {
             get => _analysisProgressValue;
@@ -233,6 +240,10 @@ namespace MeuGestorVODs
         private bool _isRunningScheduledCheck;
         private MonitorPanelLayout _monitorPanelLayout = MonitorPanelLayout.Normal;
         private AppThemeMode _appThemeMode = AppThemeMode.System;
+        private CancellationTokenSource? _downloadCts;
+        private ManualResetEventSlim _downloadPauseGate = new(initialState: true);
+        private bool _isDownloadRunning;
+        private bool _isDownloadPaused;
 
         public MainWindow()
         {
@@ -1302,8 +1313,43 @@ namespace MeuGestorVODs
             return null;
         }
 
-        private async void DownloadSelected_Click(object sender, RoutedEventArgs e)
+        private void DownloadSelected_Click(object sender, RoutedEventArgs e)
         {
+            if (_isDownloadRunning)
+            {
+                if (_isDownloadPaused)
+                {
+                    _isDownloadPaused = false;
+                    _downloadPauseGate.Set();
+                    DownloadActionButtonText = "Pausar Downloads";
+                    foreach (var activeItem in Downloads.Where(d => d.IsActive))
+                    {
+                        if (activeItem.IsPaused)
+                        {
+                            SetDownloadStatus(activeItem, "paused", "Pausado");
+                        }
+                        else
+                        {
+                            SetDownloadStatus(activeItem, "downloading", "Baixando...");
+                        }
+                    }
+                    StatusMessage = "Downloads retomados.";
+                }
+                else
+                {
+                    _isDownloadPaused = true;
+                    _downloadPauseGate.Reset();
+                    DownloadActionButtonText = "Retomar Downloads";
+                    foreach (var activeItem in Downloads.Where(d => d.IsActive))
+                    {
+                        SetDownloadStatus(activeItem, "paused", "Pausado");
+                    }
+                    StatusMessage = "Downloads pausados.";
+                }
+
+                return;
+            }
+
             var selected = FilteredEntries.Where(x => x.IsSelected).ToList();
             
             if (!selected.Any())
@@ -1312,13 +1358,39 @@ namespace MeuGestorVODs
                 return;
             }
 
+            var selectedLive = selected.Where(IsLiveEntry).ToList();
+            var selectedVod = selected.Where(x => !IsLiveEntry(x)).ToList();
+            var addedLiveBySelection = RegisterSelectedLiveChannels(selectedLive);
+
+            if (!selectedVod.Any())
+            {
+                StatusMessage = $"Nenhum VOD selecionado para download. Canais ao vivo ignorados: {selectedLive.Count}. Salvos na lista de canais: {addedLiveBySelection}.";
+                System.Windows.MessageBox.Show(
+                    "Os itens selecionados parecem ser canais ao vivo e nao sao baixados para arquivo.\n\nUse:\n- Baixar txt Canais\n- Reproducao via VLC",
+                    "Download de canais ao vivo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
             if (!Directory.Exists(DownloadPath))
                 Directory.CreateDirectory(DownloadPath);
 
             EnsureAndLoadDownloadStructure();
             var skippedExisting = 0;
+            var completed = 0;
+            var success = 0;
+            var failed = 0;
+            var tasks = new List<Task>();
 
-            foreach (var entry in selected)
+            _downloadCts?.Dispose();
+            _downloadCts = new CancellationTokenSource();
+            _downloadPauseGate.Set();
+            _isDownloadRunning = true;
+            _isDownloadPaused = false;
+            DownloadActionButtonText = "Pausar Downloads";
+
+            foreach (var entry in selectedVod)
             {
                 var outputPath = BuildOutputPath(entry);
                 if (File.Exists(outputPath))
@@ -1327,8 +1399,17 @@ namespace MeuGestorVODs
                     Downloads.Add(new DownloadItem
                     {
                         Name = entry.Name,
+                        LogoUrl = entry.LogoUrl,
+                        FileType = GetFileType(outputPath),
+                        DurationText = "ETA --:--",
+                        DownloadedText = "100%",
+                        TotalText = "Arquivo local",
+                        SpeedText = "-",
                         Progress = 100,
-                        Status = "Ja existe - ignorado"
+                        Status = "Ja existe - ignorado",
+                        StatusKind = "skipped",
+                        StatusIcon = "i",
+                        IsActive = false
                     });
                     continue;
                 }
@@ -1336,40 +1417,254 @@ namespace MeuGestorVODs
                 var downloadItem = new DownloadItem
                 {
                     Name = entry.Name,
+                    LogoUrl = entry.LogoUrl,
+                    FileType = GetFileType(outputPath),
+                    DurationText = "ETA --:--",
+                    DownloadedText = "0 B",
+                    TotalText = "--",
+                    SpeedText = "0 B/s",
                     Progress = 0,
-                    Status = "Baixando..."
+                    Status = "Baixando...",
+                    StatusKind = "downloading",
+                    StatusIcon = ">",
+                    IsActive = true,
+                    IsPaused = false
                 };
                 Downloads.Add(downloadItem);
 
-                _ = Task.Run(async () =>
+                var itemCts = CancellationTokenSource.CreateLinkedTokenSource(_downloadCts.Token);
+                downloadItem.CancelSource = itemCts;
+                downloadItem.PauseGate = new ManualResetEventSlim(initialState: true);
+
+                tasks.Add(Task.Run(async () =>
                 {
                     try
                     {
-                        var progress = new Progress<double>(p =>
+                        var progress = new Progress<DownloadService.DownloadProgressInfo>(p =>
                         {
-                            Dispatcher.Invoke(() => downloadItem.Progress = p);
+                            Dispatcher.Invoke(() =>
+                            {
+                                downloadItem.Progress = p.Percent;
+                                downloadItem.DownloadedText = FormatBytes(p.DownloadedBytes);
+                                downloadItem.TotalText = p.TotalBytes > 0 ? FormatBytes(p.TotalBytes) : "--";
+                                downloadItem.SpeedText = p.SpeedBytesPerSecond > 0 ? $"{FormatBytes((long)p.SpeedBytesPerSecond)}/s" : "0 B/s";
+                                downloadItem.DurationText = FormatEta(p.DownloadedBytes, p.TotalBytes, p.SpeedBytesPerSecond);
+                            });
                         });
 
-                        await _downloadService.DownloadFileAsync(entry.Url, outputPath, progress);
+                        await _downloadService.DownloadFileAsync(entry.Url, outputPath, progress, itemCts.Token, _downloadPauseGate, downloadItem.PauseGate);
                         
                         Dispatcher.Invoke(() =>
                         {
                             downloadItem.Progress = 100;
-                            downloadItem.Status = "Concluído";
+                            if (downloadItem.TotalText == "--")
+                            {
+                                downloadItem.TotalText = downloadItem.DownloadedText;
+                            }
+                            downloadItem.DurationText = "ETA 00:00";
+                            downloadItem.SpeedText = "-";
+                            downloadItem.IsActive = false;
+                            downloadItem.IsPaused = false;
+                            downloadItem.PauseGate?.Set();
+                            downloadItem.PauseGate?.Dispose();
+                            downloadItem.PauseGate = null;
+                            downloadItem.CancelSource = null;
+                            SetDownloadStatus(downloadItem, "completed", "Concluído");
                         });
+                        Interlocked.Increment(ref success);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            downloadItem.IsActive = false;
+                            downloadItem.CancelSource = null;
+                            downloadItem.DurationText = "ETA --:--";
+                            downloadItem.SpeedText = "-";
+                            SetDownloadStatus(downloadItem, "canceled", "Cancelado");
+                            downloadItem.IsPaused = false;
+                            downloadItem.PauseGate?.Set();
+                            downloadItem.PauseGate?.Dispose();
+                            downloadItem.PauseGate = null;
+                        });
+                        Interlocked.Increment(ref failed);
                     }
                     catch (Exception ex)
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            downloadItem.Status = $"Erro: {ex.Message}";
+                            downloadItem.IsActive = false;
+                            downloadItem.CancelSource = null;
+                            downloadItem.DurationText = "ETA --:--";
+                            downloadItem.SpeedText = "-";
+                            SetDownloadStatus(downloadItem, "error", $"Erro: {ex.Message}");
+                            downloadItem.IsPaused = false;
+                            downloadItem.PauseGate?.Set();
+                            downloadItem.PauseGate?.Dispose();
+                            downloadItem.PauseGate = null;
+                        });
+                        Interlocked.Increment(ref failed);
+                    }
+                    finally
+                    {
+                        itemCts.Dispose();
+                        var done = Interlocked.Increment(ref completed);
+                        Dispatcher.Invoke(() =>
+                        {
+                            var totalDownloadLocal = selectedVod.Count - skippedExisting;
+                            if (totalDownloadLocal > 0)
+                            {
+                                StatusMessage = _isDownloadPaused
+                                    ? $"Downloads pausados: {done}/{totalDownloadLocal} concluídos"
+                                    : $"Baixando: {done}/{totalDownloadLocal} concluídos";
+                            }
                         });
                     }
-                });
+                }));
             }
 
-            var totalDownload = selected.Count - skippedExisting;
-            StatusMessage = $"Iniciando download de {totalDownload} arquivo(s). {skippedExisting} ja existente(s).";
+            var totalDownload = selectedVod.Count - skippedExisting;
+            if (totalDownload == 0)
+            {
+                _isDownloadRunning = false;
+                _isDownloadPaused = false;
+                DownloadActionButtonText = "Baixar Selecionados";
+                StatusMessage = $"Nada para baixar. Ja existentes: {skippedExisting}. Canais ao vivo ignorados: {selectedLive.Count}. Salvos na lista de canais: {addedLiveBySelection}.";
+                return;
+            }
+
+            StatusMessage = $"Iniciando download de {totalDownload} arquivo(s). Ja existentes: {skippedExisting}. Canais ao vivo ignorados: {selectedLive.Count}. Salvos na lista de canais: {addedLiveBySelection}.";
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.WhenAll(tasks);
+                }
+                finally
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        _isDownloadRunning = false;
+                        _isDownloadPaused = false;
+                        _downloadPauseGate.Set();
+                        DownloadActionButtonText = "Baixar Selecionados";
+                        StatusMessage = $"Downloads finalizados. Sucesso: {success}, Falha: {failed}, Ja existentes: {skippedExisting}, Canais ao vivo ignorados: {selectedLive.Count}, Salvos na lista de canais: {addedLiveBySelection}.";
+                    });
+                }
+            });
+        }
+
+        private void RemoveDownloadItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { Tag: DownloadItem item })
+            {
+                if (item.IsActive)
+                {
+                    item.CancelSource?.Cancel();
+                    SetDownloadStatus(item, "canceling", "Cancelando...");
+                    return;
+                }
+
+                Downloads.Remove(item);
+            }
+        }
+
+        private void ToggleDownloadPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: DownloadItem item } || !item.IsActive)
+            {
+                return;
+            }
+
+            if (item.IsPaused)
+            {
+                item.IsPaused = false;
+                item.PauseGate?.Set();
+                if (_isDownloadPaused)
+                {
+                    SetDownloadStatus(item, "paused", "Pausado");
+                }
+                else
+                {
+                    SetDownloadStatus(item, "downloading", "Baixando...");
+                }
+            }
+            else
+            {
+                item.IsPaused = true;
+                item.PauseGate?.Reset();
+                SetDownloadStatus(item, "paused", "Pausado");
+            }
+        }
+
+        private static string FormatEta(long downloadedBytes, long totalBytes, double speedBytesPerSecond)
+        {
+            if (totalBytes <= 0 || speedBytesPerSecond <= 0)
+            {
+                return "ETA --:--";
+            }
+
+            var remainingBytes = Math.Max(totalBytes - downloadedBytes, 0);
+            var remainingSeconds = (int)Math.Round(remainingBytes / speedBytesPerSecond);
+            if (remainingSeconds < 0)
+            {
+                remainingSeconds = 0;
+            }
+
+            var eta = TimeSpan.FromSeconds(remainingSeconds);
+            var text = eta.TotalHours >= 1
+                ? eta.ToString(@"hh\:mm\:ss")
+                : eta.ToString(@"mm\:ss");
+            return $"ETA {text}";
+        }
+
+        private static void SetDownloadStatus(DownloadItem item, string kind, string message)
+        {
+            item.StatusKind = kind;
+            item.Status = message;
+            item.StatusIcon = kind switch
+            {
+                "downloading" => ">",
+                "paused" => "||",
+                "completed" => "OK",
+                "error" => "!",
+                "canceled" => "X",
+                "canceling" => "...",
+                "skipped" => "i",
+                _ => "-"
+            };
+        }
+
+        private static string GetFileType(string outputPath)
+        {
+            var ext = Path.GetExtension(outputPath);
+            if (string.IsNullOrWhiteSpace(ext))
+            {
+                return "FILE";
+            }
+
+            return ext.Trim('.').ToUpperInvariant();
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes <= 0)
+            {
+                return "0 B";
+            }
+
+            string[] units = { "B", "KB", "MB", "GB", "TB" };
+            var value = (double)bytes;
+            var unitIndex = 0;
+
+            while (value >= 1024 && unitIndex < units.Length - 1)
+            {
+                value /= 1024;
+                unitIndex++;
+            }
+
+            return unitIndex == 0 ? $"{value:F0} {units[unitIndex]}" : $"{value:F2} {units[unitIndex]}";
         }
 
         private void BrowsePath_Click(object sender, RoutedEventArgs e)
@@ -1409,14 +1704,14 @@ namespace MeuGestorVODs
 
         private void LocalFileDropZone_DragEnter(object sender, System.Windows.DragEventArgs e)
         {
-            IsLocalFileDragOver = TryGetDroppedSupportedFile(e.Data, out _);
+            IsLocalFileDragOver = TryGetDroppedAnyFile(e.Data, out _);
             e.Effects = IsLocalFileDragOver ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
             e.Handled = true;
         }
 
         private void LocalFileDropZone_DragOver(object sender, System.Windows.DragEventArgs e)
         {
-            IsLocalFileDragOver = TryGetDroppedSupportedFile(e.Data, out _);
+            IsLocalFileDragOver = TryGetDroppedAnyFile(e.Data, out _);
             e.Effects = IsLocalFileDragOver ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
             e.Handled = true;
         }
@@ -1434,7 +1729,7 @@ namespace MeuGestorVODs
             if (!TryGetDroppedSupportedFile(e.Data, out var filePath))
             {
                 System.Windows.MessageBox.Show(
-                    "Arquivo inválido. Use apenas .m3u, .m3u8 ou .txt",
+                    "Arquivo invalido. Use playlist local valida (.m3u, .m3u8, .txt, .xspf, .pls, .asx, .wpl, .zpl, .vlc, .url).",
                     "Arrastar e Soltar",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
@@ -1444,6 +1739,52 @@ namespace MeuGestorVODs
             LocalFilePath = filePath;
             StatusMessage = $"Arquivo local recebido por arrastar e soltar: {Path.GetFileName(LocalFilePath)}";
             e.Handled = true;
+        }
+
+        private static bool TryGetDroppedAnyFile(System.Windows.IDataObject dataObject, out string filePath)
+        {
+            filePath = string.Empty;
+
+            if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            {
+                if (dataObject.GetData(System.Windows.DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    var firstExisting = files.FirstOrDefault(File.Exists);
+                    if (!string.IsNullOrWhiteSpace(firstExisting))
+                    {
+                        filePath = firstExisting;
+                        return true;
+                    }
+                }
+            }
+
+            var textPayload = (dataObject.GetData(System.Windows.DataFormats.UnicodeText) as string)
+                              ?? (dataObject.GetData(System.Windows.DataFormats.Text) as string)
+                              ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(textPayload))
+            {
+                return false;
+            }
+
+            foreach (var part in textPayload
+                         .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                         .Select(x => x.Trim().Trim('"')))
+            {
+                if (string.IsNullOrWhiteSpace(part))
+                {
+                    continue;
+                }
+
+                var localPath = NormalizePotentialLocalPath(part);
+                if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
+                {
+                    filePath = localPath;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryGetDroppedSupportedFile(System.Windows.IDataObject dataObject, out string filePath)
@@ -2023,6 +2364,63 @@ namespace MeuGestorVODs
             return (addedVod, addedLive);
         }
 
+        private int RegisterSelectedLiveChannels(IEnumerable<M3UEntry> liveEntries)
+        {
+            var normalizedEntries = liveEntries
+                .Where(e => !string.IsNullOrWhiteSpace(e.Url))
+                .Select(NormalizeLiveEntryForDatabase)
+                .ToList();
+
+            if (normalizedEntries.Count == 0)
+            {
+                return 0;
+            }
+
+            EnsureLinkDatabaseFiles();
+
+            if (_databaseService != null)
+            {
+                foreach (var entry in normalizedEntries)
+                {
+                    if (!_databaseService.Entries.ExistsByUrlAsync(entry.Url).Result)
+                    {
+                        _databaseService.Entries.AddAsync(entry).Wait();
+                    }
+                }
+            }
+
+            var liveFilePath = Path.Combine(DownloadPath, LiveLinksDatabaseFileName);
+            return MergeEntriesIntoDatabase(liveFilePath, normalizedEntries);
+        }
+
+        private static M3UEntry NormalizeLiveEntryForDatabase(M3UEntry source)
+        {
+            var category = string.IsNullOrWhiteSpace(source.Category) ? "Canais" : source.Category;
+            if (!category.Contains("canal", StringComparison.OrdinalIgnoreCase) &&
+                !category.Contains("live", StringComparison.OrdinalIgnoreCase) &&
+                !category.Contains("ao vivo", StringComparison.OrdinalIgnoreCase))
+            {
+                category = "Canais";
+            }
+
+            var subCategory = string.IsNullOrWhiteSpace(source.SubCategory) ? "Adicionado pelo usuario" : source.SubCategory;
+            var groupTitle = string.IsNullOrWhiteSpace(source.GroupTitle)
+                ? $"{category} | {subCategory}"
+                : source.GroupTitle;
+
+            return new M3UEntry
+            {
+                Id = string.IsNullOrWhiteSpace(source.Id) ? Guid.NewGuid().ToString("N")[..8] : source.Id,
+                Name = string.IsNullOrWhiteSpace(source.Name) ? "Canal ao vivo" : source.Name,
+                Url = source.Url,
+                GroupTitle = groupTitle,
+                Category = category,
+                SubCategory = subCategory,
+                LogoUrl = source.LogoUrl,
+                TvgId = source.TvgId
+            };
+        }
+
         private int MergeEntriesIntoDatabase(string filePath, IEnumerable<M3UEntry> entries)
         {
             var existingUrls = LoadExistingUrls(filePath);
@@ -2136,20 +2534,83 @@ namespace MeuGestorVODs
 
         private bool IsVodEntry(M3UEntry entry)
         {
-            var category = ResolveCategory(entry);
-            if (string.Equals(category, "Canais", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "24 Horas", StringComparison.OrdinalIgnoreCase))
+            return !IsLiveEntry(entry);
+        }
+
+        private bool IsLiveEntry(M3UEntry entry)
+        {
+            var category = (entry.Category ?? string.Empty).ToLowerInvariant();
+            var subCategory = (entry.SubCategory ?? string.Empty).ToLowerInvariant();
+            var groupTitle = (entry.GroupTitle ?? string.Empty).ToLowerInvariant();
+            var name = (entry.Name ?? string.Empty).ToLowerInvariant();
+            var url = (entry.Url ?? string.Empty).ToLowerInvariant();
+
+            var metadata = $"{category} {subCategory} {groupTitle} {name}";
+
+            var vodMetadataMarkers = new[]
+            {
+                "vod", "filme", "filmes", "movie", "series", "serie", "episodio", "episode", "temporada", "season"
+            };
+
+            var liveMetadataMarkers = new[]
+            {
+                "canal", "canais", "ao vivo", "tv ao vivo", "live tv", "channel", "24 horas", "24h"
+            };
+
+            var vodUrlMarkers = new[]
+            {
+                "/movie", "/series", "/vod/", "action=get_vod_stream", "action=get_series", "type=movie", "type=vod"
+            };
+
+            var liveUrlMarkers = new[]
+            {
+                "/live", "/channel", "/play/live", "channels", "action=get_live_stream", "stream/live", "type=live"
+            };
+
+            if (ContainsAny(url, vodUrlMarkers) || ContainsAny(metadata, vodMetadataMarkers) || IsVodFileUrl(url))
             {
                 return false;
             }
 
-            var url = entry.Url?.ToLowerInvariant() ?? string.Empty;
-            if (url.Contains("/live") || url.Contains("/channel") || url.Contains("channels"))
+            if (ContainsAny(metadata, liveMetadataMarkers) || ContainsAny(url, liveUrlMarkers))
+            {
+                return true;
+            }
+
+            if (Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri))
+            {
+                var ext = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
+                if (ext is ".m3u8" or ".ts" or ".m3u" or ".mpd")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsAny(string source, IEnumerable<string> markers)
+        {
+            foreach (var marker in markers)
+            {
+                if (source.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsVodFileUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             {
                 return false;
             }
 
-            return true;
+            var ext = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
+            return ext is ".mp4" or ".mkv" or ".avi" or ".mov" or ".wmv" or ".flv" or ".webm" or ".mpg" or ".mpeg";
         }
 
         private void EnsureAndLoadDownloadStructure()
@@ -2248,12 +2709,12 @@ namespace MeuGestorVODs
 
         private string ResolveCategory(M3UEntry entry)
         {
-            var text = $"{entry.GroupTitle} {entry.Name} {entry.Url}".ToLowerInvariant();
+            var text = $"{entry.Category} {entry.SubCategory} {entry.GroupTitle} {entry.Name} {entry.Url}".ToLowerInvariant();
 
             if (text.Contains("serie") || text.Contains("series") || text.Contains("/series")) return "Series";
             if (text.Contains("filme") || text.Contains("movie") || text.Contains("cinema") || text.Contains("/movie")) return "Filmes";
-            if (text.Contains("canal") || text.Contains("channels")) return "Canais";
             if (text.Contains("24 horas") || text.Contains("24h")) return "24 Horas";
+            if (text.Contains("canal") || text.Contains("canais") || text.Contains("channel") || text.Contains("channels") || text.Contains("/live") || text.Contains("/channel")) return "Canais";
             if (text.Contains("document")) return "Documentarios";
             if (text.Contains("novela")) return "Novelas";
 
@@ -3115,6 +3576,18 @@ namespace MeuGestorVODs
         private string _name = "";
         private double _progress;
         private string _status = "";
+        private string _logoUrl = "";
+        private string _fileType = "FILE";
+        private string _durationText = "ETA --:--";
+        private string _downloadedText = "0 B";
+        private string _totalText = "--";
+        private string _speedText = "0 B/s";
+        private string _statusKind = "downloading";
+        private string _statusIcon = ">";
+        private bool _isActive;
+        private bool _isPaused;
+        private CancellationTokenSource? _cancelSource;
+        private ManualResetEventSlim? _pauseGate;
 
         public string Name
         {
@@ -3133,6 +3606,93 @@ namespace MeuGestorVODs
             get => _status;
             set { _status = value; OnPropertyChanged(nameof(Status)); }
         }
+
+        public string LogoUrl
+        {
+            get => _logoUrl;
+            set { _logoUrl = value; OnPropertyChanged(nameof(LogoUrl)); }
+        }
+
+        public string FileType
+        {
+            get => _fileType;
+            set { _fileType = value; OnPropertyChanged(nameof(FileType)); }
+        }
+
+        public string DurationText
+        {
+            get => _durationText;
+            set { _durationText = value; OnPropertyChanged(nameof(DurationText)); }
+        }
+
+        public string DownloadedText
+        {
+            get => _downloadedText;
+            set { _downloadedText = value; OnPropertyChanged(nameof(DownloadedText)); }
+        }
+
+        public string TotalText
+        {
+            get => _totalText;
+            set { _totalText = value; OnPropertyChanged(nameof(TotalText)); }
+        }
+
+        public string SpeedText
+        {
+            get => _speedText;
+            set { _speedText = value; OnPropertyChanged(nameof(SpeedText)); }
+        }
+
+        public string StatusKind
+        {
+            get => _statusKind;
+            set { _statusKind = value; OnPropertyChanged(nameof(StatusKind)); }
+        }
+
+        public string StatusIcon
+        {
+            get => _statusIcon;
+            set { _statusIcon = value; OnPropertyChanged(nameof(StatusIcon)); }
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set
+            {
+                _isActive = value;
+                OnPropertyChanged(nameof(IsActive));
+                OnPropertyChanged(nameof(PauseButtonText));
+                OnPropertyChanged(nameof(PauseButtonToolTip));
+            }
+        }
+
+        public bool IsPaused
+        {
+            get => _isPaused;
+            set
+            {
+                _isPaused = value;
+                OnPropertyChanged(nameof(IsPaused));
+                OnPropertyChanged(nameof(PauseButtonText));
+                OnPropertyChanged(nameof(PauseButtonToolTip));
+            }
+        }
+
+        public CancellationTokenSource? CancelSource
+        {
+            get => _cancelSource;
+            set { _cancelSource = value; OnPropertyChanged(nameof(CancelSource)); }
+        }
+
+        public ManualResetEventSlim? PauseGate
+        {
+            get => _pauseGate;
+            set { _pauseGate = value; OnPropertyChanged(nameof(PauseGate)); }
+        }
+
+        public string PauseButtonText => !IsActive ? "-" : (IsPaused ? "▶" : "❚❚");
+        public string PauseButtonToolTip => !IsActive ? "Download finalizado" : (IsPaused ? "Retomar download" : "Pausar download");
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName)

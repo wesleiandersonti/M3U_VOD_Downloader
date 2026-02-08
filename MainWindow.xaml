@@ -262,7 +262,10 @@
                              EnableColumnVirtualization="True"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
-                             ScrollViewer.CanContentScroll="True">
+                             MinColumnWidth="70"
+                             ScrollViewer.CanContentScroll="True"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="White"/>
@@ -281,7 +284,7 @@
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, Mode=TwoWay}" Width="30"/>
-                            <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="220"/>
                             <DataGridTextColumn Header="Grupo (Categoria | Subcategoria)" Binding="{Binding GroupDisplay}" Width="230"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="90"/>
                             <DataGridTextColumn Header="Servidor" Binding="{Binding ServerHost}" Width="150"/>
@@ -298,7 +301,9 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="Grupos encontrados" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                            <TreeView Grid.Row="1" x:Name="GroupsTree" ItemsSource="{Binding GroupCategories}" SelectedItemChanged="GroupsTree_SelectedItemChanged" Height="170">
+                            <TreeView Grid.Row="1" x:Name="GroupsTree" ItemsSource="{Binding GroupCategories}" SelectedItemChanged="GroupsTree_SelectedItemChanged" Height="170"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <TreeView.Resources>
                                     <HierarchicalDataTemplate DataType="{x:Type local:GroupCategoryItem}" ItemsSource="{Binding Groups}">
                                         <TextBlock Text="{Binding CategoryName}" FontWeight="SemiBold"/>
@@ -314,7 +319,7 @@
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="10">
                         <Button Content="Selecionar Todos" Click="SelectAll_Click" Padding="10,5" Margin="0,0,5,0" ToolTip="Marca todos os itens listados para download"/>
                         <Button Content="Desmarcar Todos" Click="DeselectAll_Click" Padding="10,5" Margin="0,0,20,0" ToolTip="Remove a seleção de todos os itens"/>
-                        <Button Content="Baixar Selecionados" Click="DownloadSelected_Click" Padding="15,5" Background="#4CAF50" Foreground="White" ToolTip="Inicia o download dos itens selecionados"/>
+                        <Button Content="{Binding DownloadActionButtonText}" Click="DownloadSelected_Click" Padding="15,5" Background="#4CAF50" Foreground="White" ToolTip="Inicia, pausa ou retoma os downloads selecionados"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -343,20 +348,124 @@
 
                     <TabControl Grid.Row="1" Margin="6">
                         <TabItem Header="Downloads">
-                            <ScrollViewer>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Downloads}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="10">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="15" Margin="0,5"/>
-                                                    <Grid>
-                                                        <TextBlock Text="{Binding Status}" FontSize="11" Foreground="Gray"/>
-                                                        <TextBlock Text="{Binding Progress, StringFormat='{}{0:F0}%'}" FontSize="11" 
-                                                                  HorizontalAlignment="Right"/>
-                                                    </Grid>
-                                                </StackPanel>
+                                            <Border BorderBrush="#D7D7D7" BorderThickness="1" CornerRadius="6" Margin="0,0,0,8" Padding="8" Background="White">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="74"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Border Grid.Column="0" Width="66" Height="44" CornerRadius="4" Background="#1E1E1E" BorderBrush="#A8A8A8" BorderThickness="1">
+                                                        <Grid>
+                                                            <Image Source="{Binding LogoUrl}" Stretch="UniformToFill"/>
+                                                            <TextBlock Text="{Binding FileType}" Foreground="White" FontWeight="Bold" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,2"/>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" FontSize="12"/>
+                                                        <ProgressBar Value="{Binding Progress}" Maximum="100" Height="7" Margin="0,6,0,6" Background="#ECECEC" Foreground="#2F8F43"/>
+                                                        <WrapPanel>
+                                                            <TextBlock Text="{Binding DurationText}" FontSize="10" Foreground="#666" Margin="0,0,10,0"/>
+                                                            <TextBlock Text="{Binding DownloadedText}" FontSize="10" Foreground="#666" Margin="0,0,10,0"/>
+                                                            <TextBlock Text="{Binding TotalText}" FontSize="10" Foreground="#666" Margin="0,0,10,0"/>
+                                                            <TextBlock Text="{Binding SpeedText}" FontSize="10" Foreground="#666" Margin="0,0,10,0"/>
+                                                            <TextBlock Text="{Binding StatusIcon}" FontSize="10" Margin="0,0,4,0">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#4A4A4A"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="downloading">
+                                                                                <Setter Property="Foreground" Value="#2F8F43"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="paused">
+                                                                                <Setter Property="Foreground" Value="#C77700"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="completed">
+                                                                                <Setter Property="Foreground" Value="#2F8F43"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="error">
+                                                                                <Setter Property="Foreground" Value="#C62828"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="canceled">
+                                                                                <Setter Property="Foreground" Value="#7A7A7A"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="canceling">
+                                                                                <Setter Property="Foreground" Value="#A55B00"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="skipped">
+                                                                                <Setter Property="Foreground" Value="#5C6BC0"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Status}" FontSize="10">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#444"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="downloading">
+                                                                                <Setter Property="Foreground" Value="#2F8F43"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="paused">
+                                                                                <Setter Property="Foreground" Value="#C77700"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="completed">
+                                                                                <Setter Property="Foreground" Value="#2F8F43"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="error">
+                                                                                <Setter Property="Foreground" Value="#C62828"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="canceled">
+                                                                                <Setter Property="Foreground" Value="#7A7A7A"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="canceling">
+                                                                                <Setter Property="Foreground" Value="#A55B00"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding StatusKind}" Value="skipped">
+                                                                                <Setter Property="Foreground" Value="#5C6BC0"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </WrapPanel>
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                                                        <Button Content="{Binding}" Width="22" Height="22" Padding="0" Margin="0,0,0,4" Click="ToggleDownloadPause_Click" Tag="{Binding}" ToolTip="{Binding PauseButtonToolTip}" Background="#E8F5E9" BorderBrush="#9CCC65" BorderThickness="1" Foreground="#1B5E20" IsEnabled="{Binding IsActive}">
+                                                            <Button.ContentTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                        <Path x:Name="PlayIcon" Data="M2,1 L2,11 L10,6 Z" Fill="#1B5E20" Stretch="Fill" Visibility="Collapsed"/>
+                                                                        <Grid x:Name="PauseIcon" Width="10" Height="12">
+                                                                            <Rectangle Width="3" Height="12" Fill="#1B5E20" HorizontalAlignment="Left"/>
+                                                                            <Rectangle Width="3" Height="12" Fill="#1B5E20" HorizontalAlignment="Right"/>
+                                                                        </Grid>
+                                                                    </Grid>
+                                                                    <DataTemplate.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                                                            <Setter TargetName="PlayIcon" Property="Visibility" Value="Visible"/>
+                                                                            <Setter TargetName="PauseIcon" Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsPaused}" Value="False">
+                                                                            <Setter TargetName="PlayIcon" Property="Visibility" Value="Collapsed"/>
+                                                                            <Setter TargetName="PauseIcon" Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </DataTemplate.Triggers>
+                                                                </DataTemplate>
+                                                            </Button.ContentTemplate>
+                                                        </Button>
+                                                        <Button Content="X" Width="22" Height="22" Padding="0" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" Click="RemoveDownloadItem_Click" Tag="{Binding}" ToolTip="Parar download / remover item" Background="#FFEBEE" BorderBrush="#EF9A9A" BorderThickness="1" Foreground="#B71C1C"/>
+                                                        <TextBlock Text="{Binding Progress, StringFormat='{}{0:F1}%'}" FontSize="10" Foreground="#666" HorizontalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -371,7 +480,10 @@
                                       GridLinesVisibility="Horizontal"
                                       EnableRowVirtualization="True"
                                       VirtualizingPanel.IsVirtualizing="True"
-                                      VirtualizingPanel.VirtualizationMode="Recycling">
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      MinColumnWidth="55"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <DataGrid.RowStyle>
                                     <Style TargetType="DataGridRow">
                                         <Setter Property="Background" Value="White"/>
@@ -392,7 +504,7 @@
                                     </Style>
                                 </DataGrid.RowStyle>
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Servidor" Binding="{Binding Host}" Width="*"/>
+                                    <DataGridTextColumn Header="Servidor" Binding="{Binding Host}" Width="*" MinWidth="180"/>
                                     <DataGridTextColumn Header="Score" Binding="{Binding Score, StringFormat={}{0:F1}}" Width="65"/>
                                     <DataGridTextColumn Header="Qualidade" Binding="{Binding Quality}" Width="85"/>
                                     <DataGridTextColumn Header="Online" Binding="{Binding OnlineLinks}" Width="55"/>

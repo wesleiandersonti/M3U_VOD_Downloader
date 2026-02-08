@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MeuGestorVODs;
@@ -302,9 +303,55 @@ public class DownloadService
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
     }
 
-    public async Task DownloadFileAsync(string url, string outputPath, IProgress<double> progress)
+    public class DownloadProgressInfo
     {
-        var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        public double Percent { get; set; }
+        public long DownloadedBytes { get; set; }
+        public long TotalBytes { get; set; }
+        public double SpeedBytesPerSecond { get; set; }
+    }
+
+    public Task DownloadFileAsync(string url, string outputPath, IProgress<double> progress)
+    {
+        return DownloadFileAsync(url, outputPath, progress, CancellationToken.None, null);
+    }
+
+    public Task DownloadFileAsync(string url, string outputPath, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken, ManualResetEventSlim? pauseGate)
+    {
+        return DownloadFileCoreAsync(url, outputPath, progress, cancellationToken, pauseGate, null);
+    }
+
+    public Task DownloadFileAsync(
+        string url,
+        string outputPath,
+        IProgress<DownloadProgressInfo> progress,
+        CancellationToken cancellationToken,
+        ManualResetEventSlim? globalPauseGate,
+        ManualResetEventSlim? itemPauseGate)
+    {
+        return DownloadFileCoreAsync(url, outputPath, progress, cancellationToken, globalPauseGate, itemPauseGate);
+    }
+
+    public async Task DownloadFileAsync(
+        string url,
+        string outputPath,
+        IProgress<double> progress,
+        CancellationToken cancellationToken,
+        ManualResetEventSlim? pauseGate)
+    {
+        var richProgress = new Progress<DownloadProgressInfo>(p => progress.Report(p.Percent));
+        await DownloadFileCoreAsync(url, outputPath, richProgress, cancellationToken, pauseGate, null);
+    }
+
+    private async Task DownloadFileCoreAsync(
+        string url,
+        string outputPath,
+        IProgress<DownloadProgressInfo> progress,
+        CancellationToken cancellationToken,
+        ManualResetEventSlim? globalPauseGate,
+        ManualResetEventSlim? itemPauseGate)
+    {
+        var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength ?? -1L;
@@ -314,27 +361,39 @@ public class DownloadService
             Directory.CreateDirectory(directory);
         }
 
-        await using var contentStream = await response.Content.ReadAsStreamAsync();
+        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
         await using var fileStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
 
         var buffer = new byte[81920];
         long totalRead = 0;
+        var startedAt = DateTime.UtcNow;
 
         while (true)
         {
-            var read = await contentStream.ReadAsync(buffer.AsMemory(0, buffer.Length));
+            cancellationToken.ThrowIfCancellationRequested();
+            globalPauseGate?.Wait(cancellationToken);
+            itemPauseGate?.Wait(cancellationToken);
+
+            var read = await contentStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
             if (read == 0)
             {
                 break;
             }
 
-            await fileStream.WriteAsync(buffer.AsMemory(0, read));
+            await fileStream.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             totalRead += read;
 
-            if (totalBytes > 0)
+            var elapsedSeconds = Math.Max((DateTime.UtcNow - startedAt).TotalSeconds, 0.001);
+            var speed = totalRead / elapsedSeconds;
+            var percent = totalBytes > 0 ? (double)totalRead / totalBytes * 100d : 0d;
+
+            progress.Report(new DownloadProgressInfo
             {
-                progress.Report((double)totalRead / totalBytes * 100);
-            }
+                Percent = percent,
+                DownloadedBytes = totalRead,
+                TotalBytes = totalBytes,
+                SpeedBytesPerSecond = speed
+            });
         }
     }
 }

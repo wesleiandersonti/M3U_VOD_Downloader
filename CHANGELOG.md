@@ -30,6 +30,18 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.13] - 2026-02-08
+
+### 🐛 Corrigido (Fixes)
+- **Correção de layout da barra inferior**
+  - Corrige botões esticados verticalmente ocupando espaço excessivo
+  - Remove linha extra do Grid.RowDefinitions
+  - Adiciona VerticalAlignment="Center" nos botões
+  - Restaura textos completos dos botões
+  - Corrige estrutura do Grid principal
+
+---
+
 ## [1.0.12] - 2026-02-08
 
 ### 🐛 Corrigido (Fixes)

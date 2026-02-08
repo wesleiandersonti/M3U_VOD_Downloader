@@ -42,6 +42,37 @@ namespace MeuGestorVODs.Repositories
     }
 
     /// <summary>
+    /// Interface para histórico de URLs M3U
+    /// </summary>
+    public interface IM3uUrlRepository
+    {
+        Task<int> SaveOrUpdateAsync(string url, string? name = null, bool isOnline = true, int entryCount = 0);
+        Task<List<M3uUrlHistory>> GetAllAsync();
+        Task<List<M3uUrlHistory>> GetRecentAsync(int count);
+        Task<List<M3uUrlHistory>> GetOnlineAsync();
+        Task<List<M3uUrlHistory>> GetOfflineAsync();
+        Task<int> DeleteOfflineAsync();
+        Task<bool> ExistsAsync(string url);
+        Task UpdateStatusAsync(string url, bool isOnline, int entryCount = 0);
+    }
+
+    /// <summary>
+    /// Entidade de histórico de URLs M3U
+    /// </summary>
+    public class M3uUrlHistory
+    {
+        public int Id { get; set; }
+        public string Url { get; set; } = string.Empty;
+        public string? Name { get; set; }
+        public bool IsOnline { get; set; } = true;
+        public DateTime LastChecked { get; set; }
+        public int EntryCount { get; set; }
+        public int SuccessCount { get; set; }
+        public int FailCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>
     /// Entidade de histórico de download
     /// </summary>
     public class DownloadHistoryEntry

@@ -31,10 +31,14 @@
                     <ColumnDefinition Width="Auto" SharedSizeGroup="Label"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="URL M3U:" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="SemiBold"/>
-                <TextBox Grid.Column="1" Text="{Binding M3UUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                <Button Grid.Column="2" Content="Carregar" Click="LoadM3U_Click" Padding="15,5" Margin="10,0,0,0"/>
+                <ComboBox Grid.Column="1" x:Name="M3UUrlComboBox" IsEditable="True" Text="{Binding M3UUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                <Button Grid.Column="2" Content="Histórico" Click="ShowUrlHistory_Click" Padding="12,5" Margin="5,0,0,0" Background="#2196F3" Foreground="White"/>
+                <Button Grid.Column="3" Content="Limpar Offline" Click="ClearOfflineUrls_Click" Padding="12,5" Margin="5,0,0,0" Background="#F44336" Foreground="White"/>
+                <Button Grid.Column="4" Content="Carregar" Click="LoadM3U_Click" Padding="15,5" Margin="5,0,0,0"/>
             </Grid>
 
             <!-- Download Path -->

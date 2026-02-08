@@ -189,6 +189,16 @@ namespace MeuGestorVODs
                         });
                     }
                 }
+
+                // Carregar histórico de URLs
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Aguardar UI carregar
+                    await Dispatcher.InvokeAsync(async () =>
+                    {
+                        await LoadM3UUrlHistory();
+                    });
+                });
             }
             catch (Exception ex)
             {
@@ -197,6 +207,98 @@ namespace MeuGestorVODs
                     "Erro de Inicialização",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
+            }
+        }
+
+        private async void LoadM3UUrlHistory()
+        {
+            if (_databaseService == null || M3UUrlComboBox == null) return;
+
+            try
+            {
+                var urls = await _databaseService.M3uUrls.GetRecentAsync(20);
+                M3UUrlComboBox.Items.Clear();
+                foreach (var url in urls)
+                {
+                    M3UUrlComboBox.Items.Add(url.Url);
+                }
+            }
+            catch { }
+        }
+
+        private async void ShowUrlHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (_databaseService == null)
+            {
+                System.Windows.MessageBox.Show("Banco de dados não inicializado.", "Erro", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                var urls = await _databaseService.M3uUrls.GetAllAsync();
+                var onlineCount = urls.Count(u => u.IsOnline);
+                var offlineCount = urls.Count(u => !u.IsOnline);
+
+                var message = $"📊 HISTÓRICO DE URLs M3U\n\n" +
+                             $"Total: {urls.Count}\n" +
+                             $"✅ Online: {onlineCount}\n" +
+                             $"❌ Offline: {offlineCount}\n\n" +
+                             $"Últimas 10 URLs:\n";
+
+                foreach (var url in urls.Take(10))
+                {
+                    var status = url.IsOnline ? "✅" : "❌";
+                    var date = url.LastChecked.ToString("dd/MM/yy HH:mm");
+                    var entries = url.EntryCount > 0 ? $" ({url.EntryCount} itens)" : "";
+                    message += $"{status} {date} - {url.Url.Substring(0, Math.Min(50, url.Url.Length))}...{entries}\n";
+                }
+
+                System.Windows.MessageBox.Show(message, "Histórico de URLs", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Erro: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void ClearOfflineUrls_Click(object sender, RoutedEventArgs e)
+        {
+            if (_databaseService == null)
+            {
+                System.Windows.MessageBox.Show("Banco de dados não inicializado.", "Erro", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var offlineUrls = await _databaseService.M3uUrls.GetOfflineAsync();
+            if (offlineUrls.Count == 0)
+            {
+                System.Windows.MessageBox.Show("Não há URLs offline para remover.", "Informação", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = System.Windows.MessageBox.Show(
+                $"Encontradas {offlineUrls.Count} URLs offline.\n\n" +
+                $"Deseja removê-las do histórico?\n\n" +
+                $"URLs offline:\n" +
+                string.Join("\n", offlineUrls.Take(5).Select(u => $"- {u.Url.Substring(0, Math.Min(40, u.Url.Length))}...")),
+                "Confirmar Remoção",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var deleted = await _databaseService.M3uUrls.DeleteOfflineAsync();
+                    System.Windows.MessageBox.Show($"{deleted} URLs offline removidas com sucesso!", "Sucesso", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await LoadM3UUrlHistory();
+                    StatusMessage = $"{deleted} URLs offline removidas";
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Erro ao remover: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -232,11 +334,22 @@ namespace MeuGestorVODs
 
                 var (newVod, newLive) = PersistLinkDatabases(entries);
                 
+                // Salvar URL no histórico
+                if (_databaseService != null)
+                {
+                    await _databaseService.M3uUrls.SaveOrUpdateAsync(
+                        M3UUrl, 
+                        $"Lista carregada em {DateTime.Now:dd/MM/yyyy HH:mm}", 
+                        isOnline: true, 
+                        entryCount: entries.Count);
+                }
+                
                 ApplyFilter();
                 
                 // Mostrar estatísticas do banco
                 var dbCount = _databaseService?.Entries.GetCountAsync().Result ?? 0;
-                StatusMessage = $"Carregados {entries.Count} itens | SQLite: +{newVod} VOD, +{newLive} canais | Total no banco: {dbCount}";
+                var urlCount = _databaseService?.M3uUrls.GetAllAsync().Result.Count ?? 0;
+                StatusMessage = $"Carregados {entries.Count} itens | SQLite: +{newVod} VOD, +{newLive} canais | Total no banco: {dbCount} | URLs: {urlCount}";
             }
             catch (Exception ex)
             {

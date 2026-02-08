@@ -23,6 +23,7 @@ namespace MeuGestorVODs.Repositories
         public IEntryRepository Entries { get; }
         public IDownloadHistoryRepository Downloads { get; }
         public IFavoriteRepository Favorites { get; }
+        public IM3uUrlRepository M3uUrls { get; }
 
         public DatabaseService(string databaseDirectory)
         {
@@ -38,6 +39,7 @@ namespace MeuGestorVODs.Repositories
             Entries = new SqliteEntryRepository(this);
             Downloads = new SqliteDownloadHistoryRepository(this);
             Favorites = new SqliteFavoriteRepository(this);
+            M3uUrls = new SqliteM3uUrlRepository(this);
 
             InitializeDatabase();
         }
@@ -109,6 +111,25 @@ namespace MeuGestorVODs.Repositories
                     );
 
                     INSERT OR IGNORE INTO SchemaVersion (Id, Version) VALUES (1, 1);
+                ");
+
+                // Tabela de histórico de URLs M3U
+                connection.Execute(@"
+                    CREATE TABLE IF NOT EXISTS M3uUrlHistory (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Url TEXT UNIQUE NOT NULL,
+                        Name TEXT,
+                        IsOnline BOOLEAN DEFAULT 1,
+                        LastChecked DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        EntryCount INTEGER DEFAULT 0,
+                        SuccessCount INTEGER DEFAULT 0,
+                        FailCount INTEGER DEFAULT 0,
+                        CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_m3uurl_url ON M3uUrlHistory(Url);
+                    CREATE INDEX IF NOT EXISTS idx_m3uurl_online ON M3uUrlHistory(IsOnline);
+                    CREATE INDEX IF NOT EXISTS idx_m3uurl_checked ON M3uUrlHistory(LastChecked);
                 ");
             }
         }
@@ -371,6 +392,124 @@ namespace MeuGestorVODs.Repositories
                 SELECT EntryUrl FROM Favorites
                 ORDER BY AddedAt DESC
             ")).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Implementação SQLite do repositório de URLs M3U
+    /// </summary>
+    public class SqliteM3uUrlRepository : IM3uUrlRepository
+    {
+        private readonly DatabaseService _db;
+
+        public SqliteM3uUrlRepository(DatabaseService db)
+        {
+            _db = db;
+        }
+
+        public async Task<int> SaveOrUpdateAsync(string url, string? name = null, bool isOnline = true, int entryCount = 0)
+        {
+            using var connection = _db.CreateConnection();
+            
+            // Verificar se já existe
+            var exists = await connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM M3uUrlHistory WHERE Url = @Url",
+                new { Url = url });
+
+            if (exists > 0)
+            {
+                // Atualizar
+                return await connection.ExecuteAsync(@"
+                    UPDATE M3uUrlHistory 
+                    SET Name = @Name,
+                        IsOnline = @IsOnline,
+                        LastChecked = CURRENT_TIMESTAMP,
+                        EntryCount = @EntryCount,
+                        SuccessCount = SuccessCount + CASE WHEN @IsOnline = 1 THEN 1 ELSE 0 END,
+                        FailCount = FailCount + CASE WHEN @IsOnline = 0 THEN 1 ELSE 0 END
+                    WHERE Url = @Url
+                ", new { Url = url, Name = name, IsOnline = isOnline, EntryCount = entryCount });
+            }
+            else
+            {
+                // Inserir novo
+                return await connection.ExecuteAsync(@"
+                    INSERT INTO M3uUrlHistory (Url, Name, IsOnline, EntryCount, SuccessCount, FailCount)
+                    VALUES (@Url, @Name, @IsOnline, @EntryCount, 
+                            CASE WHEN @IsOnline = 1 THEN 1 ELSE 0 END,
+                            CASE WHEN @IsOnline = 0 THEN 1 ELSE 0 END)
+                ", new { Url = url, Name = name, IsOnline = isOnline, EntryCount = entryCount });
+            }
+        }
+
+        public async Task<List<M3uUrlHistory>> GetAllAsync()
+        {
+            using var connection = _db.CreateConnection();
+            return (await connection.QueryAsync<M3uUrlHistory>(@"
+                SELECT * FROM M3uUrlHistory
+                ORDER BY LastChecked DESC
+            ")).ToList();
+        }
+
+        public async Task<List<M3uUrlHistory>> GetRecentAsync(int count)
+        {
+            using var connection = _db.CreateConnection();
+            return (await connection.QueryAsync<M3uUrlHistory>(@"
+                SELECT * FROM M3uUrlHistory
+                ORDER BY LastChecked DESC
+                LIMIT @Count
+            ", new { Count = count })).ToList();
+        }
+
+        public async Task<List<M3uUrlHistory>> GetOnlineAsync()
+        {
+            using var connection = _db.CreateConnection();
+            return (await connection.QueryAsync<M3uUrlHistory>(@"
+                SELECT * FROM M3uUrlHistory
+                WHERE IsOnline = 1
+                ORDER BY LastChecked DESC
+            ")).ToList();
+        }
+
+        public async Task<List<M3uUrlHistory>> GetOfflineAsync()
+        {
+            using var connection = _db.CreateConnection();
+            return (await connection.QueryAsync<M3uUrlHistory>(@"
+                SELECT * FROM M3uUrlHistory
+                WHERE IsOnline = 0
+                ORDER BY LastChecked DESC
+            ")).ToList();
+        }
+
+        public async Task<int> DeleteOfflineAsync()
+        {
+            using var connection = _db.CreateConnection();
+            return await connection.ExecuteAsync(@"
+                DELETE FROM M3uUrlHistory WHERE IsOnline = 0
+            ");
+        }
+
+        public async Task<bool> ExistsAsync(string url)
+        {
+            using var connection = _db.CreateConnection();
+            var count = await connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM M3uUrlHistory WHERE Url = @Url",
+                new { Url = url });
+            return count > 0;
+        }
+
+        public async Task UpdateStatusAsync(string url, bool isOnline, int entryCount = 0)
+        {
+            using var connection = _db.CreateConnection();
+            await connection.ExecuteAsync(@"
+                UPDATE M3uUrlHistory 
+                SET IsOnline = @IsOnline,
+                    LastChecked = CURRENT_TIMESTAMP,
+                    EntryCount = CASE WHEN @EntryCount > 0 THEN @EntryCount ELSE EntryCount END,
+                    SuccessCount = SuccessCount + CASE WHEN @IsOnline = 1 THEN 1 ELSE 0 END,
+                    FailCount = FailCount + CASE WHEN @IsOnline = 0 THEN 1 ELSE 0 END
+                WHERE Url = @Url
+            ", new { Url = url, IsOnline = isOnline, EntryCount = entryCount });
         }
     }
 }

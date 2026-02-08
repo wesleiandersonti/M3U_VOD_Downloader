@@ -47,6 +47,7 @@ namespace MeuGestorVODs
         private Visibility _groupPanelVisibility = Visibility.Collapsed;
         private bool _isLoading = false;
         private bool _isAnalyzingLinks;
+        private bool _isLocalFileDragOver;
         private double _analysisProgressValue;
         private M3UEntry _selectedEntry = new M3UEntry();
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
@@ -170,6 +171,12 @@ namespace MeuGestorVODs
         {
             get => _isAnalyzingLinks;
             set { _isAnalyzingLinks = value; OnPropertyChanged(nameof(IsAnalyzingLinks)); }
+        }
+
+        public bool IsLocalFileDragOver
+        {
+            get => _isLocalFileDragOver;
+            set { _isLocalFileDragOver = value; OnPropertyChanged(nameof(IsLocalFileDragOver)); }
         }
 
         public Visibility GroupPanelVisibility
@@ -1160,8 +1167,84 @@ namespace MeuGestorVODs
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 LocalFilePath = dialog.FileName;
+                IsLocalFileDragOver = false;
                 StatusMessage = $"Arquivo selecionado: {Path.GetFileName(LocalFilePath)}";
             }
+        }
+
+        private void LocalFileDropZone_DragEnter(object sender, System.Windows.DragEventArgs e)
+        {
+            IsLocalFileDragOver = TryGetDroppedSupportedFile(e.Data, out _);
+            e.Effects = IsLocalFileDragOver ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void LocalFileDropZone_DragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            IsLocalFileDragOver = TryGetDroppedSupportedFile(e.Data, out _);
+            e.Effects = IsLocalFileDragOver ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void LocalFileDropZone_DragLeave(object sender, System.Windows.DragEventArgs e)
+        {
+            IsLocalFileDragOver = false;
+            e.Handled = true;
+        }
+
+        private void LocalFileDropZone_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            IsLocalFileDragOver = false;
+
+            if (!TryGetDroppedSupportedFile(e.Data, out var filePath))
+            {
+                System.Windows.MessageBox.Show(
+                    "Arquivo inválido. Use apenas .m3u, .m3u8 ou .txt",
+                    "Arrastar e Soltar",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            LocalFilePath = filePath;
+            StatusMessage = $"Arquivo local recebido por arrastar e soltar: {Path.GetFileName(LocalFilePath)}";
+        }
+
+        private static bool TryGetDroppedSupportedFile(System.Windows.IDataObject dataObject, out string filePath)
+        {
+            filePath = string.Empty;
+
+            if (!dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+            {
+                return false;
+            }
+
+            if (dataObject.GetData(System.Windows.DataFormats.FileDrop) is not string[] files || files.Length == 0)
+            {
+                return false;
+            }
+
+            var candidate = files.FirstOrDefault(IsSupportedPlaylistFile);
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return false;
+            }
+
+            filePath = candidate;
+            return true;
+        }
+
+        private static bool IsSupportedPlaylistFile(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var ext = Path.GetExtension(path);
+            return ext.Equals(".m3u", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".m3u8", StringComparison.OrdinalIgnoreCase)
+                || ext.Equals(".txt", StringComparison.OrdinalIgnoreCase);
         }
 
         private async void LoadLocalFile_Click(object sender, RoutedEventArgs e)
@@ -2241,39 +2324,160 @@ namespace MeuGestorVODs
 
         private async void OpenVodLinksTxt_Click(object sender, RoutedEventArgs e)
         {
-            // Mostrar estatísticas do banco
-            if (_databaseService != null)
-            {
-                var count = await _databaseService.Entries.GetCountAsync();
-                var result = System.Windows.MessageBox.Show(
-                    $"Banco SQLite contém {count} entradas totais.\n\n" +
-                    "Deseja:\n" +
-                    "- Sim: Exportar banco para arquivo M3U\n" +
-                    "- Não: Abrir arquivo TXT legado",
-                    "Gerenciar Banco de Dados",
-                    MessageBoxButton.YesNoCancel,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    await ExportDatabaseToM3uAsync();
-                    return;
-                }
-                else if (result == MessageBoxResult.Cancel)
-                {
-                    return;
-                }
-            }
-
-            EnsureLinkDatabaseFiles();
-            var filePath = Path.Combine(DownloadPath, VodLinksDatabaseFileName);
-            OpenTextFileInNotepad(filePath, "VOD");
+            await ExportPlaylistForVlcAsync(isVod: true);
         }
 
         private async void OpenLiveLinksTxt_Click(object sender, RoutedEventArgs e)
         {
-            // Reutilizar a mesma lógica do VOD
-            OpenVodLinksTxt_Click(sender, e);
+            await ExportPlaylistForVlcAsync(isVod: false);
+        }
+
+        private async Task ExportPlaylistForVlcAsync(bool isVod)
+        {
+            try
+            {
+                EnsureLinkDatabaseFiles();
+
+                var label = isVod ? "VODs" : "Canais";
+                var filePrefix = isVod ? "vods" : "canais";
+
+                var entries = await LoadEntriesForExportAsync(isVod);
+                if (entries.Count == 0)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Nenhum item de {label} foi encontrado para exportação.",
+                        "Exportação",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
+
+                var lines = new List<string> { "#EXTM3U" };
+                foreach (var entry in entries)
+                {
+                    var tvgId = !string.IsNullOrWhiteSpace(entry.TvgId) ? entry.TvgId : entry.Id;
+                    var extinf = $"#EXTINF:-1 tvg-id=\"{EscapeM3uAttribute(tvgId)}\" " +
+                                 $"tvg-name=\"{EscapeM3uAttribute(entry.Name)}\" " +
+                                 $"tvg-logo=\"{EscapeM3uAttribute(entry.LogoUrl)}\" " +
+                                 $"group-title=\"{EscapeM3uAttribute(entry.GroupTitle)}\",{EscapeM3uAttribute(entry.Name)}";
+
+                    lines.Add(extinf);
+                    lines.Add(entry.Url.Trim());
+                }
+
+                var outputPath = Path.Combine(DownloadPath, $"playlist_{filePrefix}_vlc_{DateTime.Now:yyyyMMdd_HHmmss}.m3u");
+                await File.WriteAllLinesAsync(outputPath, lines);
+
+                var isCompatible = ValidateM3uForVlc(lines, out var validationDetails);
+                var compatMessage = isCompatible
+                    ? "Compatível com VLC: Sim (formato #EXTM3U/#EXTINF válido)."
+                    : "Compatível com VLC: Parcial (arquivo exportado, mas com alertas).";
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{outputPath}\"",
+                    UseShellExecute = true
+                });
+
+                System.Windows.MessageBox.Show(
+                    $"Arquivo de {label} exportado com sucesso!\n\n" +
+                    $"Arquivo: {outputPath}\n" +
+                    $"Itens: {entries.Count}\n" +
+                    $"{compatMessage}\n\n" +
+                    $"Detalhes: {validationDetails}",
+                    "Exportação para VLC",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                StatusMessage = $"Playlist {label} exportada para VLC ({entries.Count} itens).";
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Erro ao exportar playlist: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "Erro ao exportar playlist para VLC";
+            }
+        }
+
+        private async Task<List<M3UEntry>> LoadEntriesForExportAsync(bool isVod)
+        {
+            if (_databaseService != null)
+            {
+                var allEntries = await _databaseService.Entries.GetAllAsync();
+                return allEntries.Where(e => isVod ? IsVodEntry(e) : !IsVodEntry(e)).ToList();
+            }
+
+            var legacyPath = Path.Combine(DownloadPath, isVod ? VodLinksDatabaseFileName : LiveLinksDatabaseFileName);
+            if (!File.Exists(legacyPath))
+            {
+                return new List<M3UEntry>();
+            }
+
+            var content = await File.ReadAllTextAsync(legacyPath);
+            var parsed = _m3uService.ParseFromString(content);
+            if (parsed.Count > 0)
+            {
+                return parsed;
+            }
+
+            var fallback = new List<M3UEntry>();
+            foreach (var raw in File.ReadLines(legacyPath))
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('|');
+                if (parts.Length < 3)
+                {
+                    continue;
+                }
+
+                fallback.Add(new M3UEntry
+                {
+                    Id = Guid.NewGuid().ToString("N")[..8],
+                    Name = parts[0].Trim(),
+                    GroupTitle = parts[1].Trim(),
+                    Url = parts[2].Trim(),
+                    Category = parts[1].Split('|').FirstOrDefault()?.Trim() ?? "Sem Categoria",
+                    SubCategory = parts[1].Contains('|') ? string.Join(" | ", parts[1].Split('|').Skip(1).Select(x => x.Trim())) : "Geral"
+                });
+            }
+
+            return fallback;
+        }
+
+        private static bool ValidateM3uForVlc(IReadOnlyList<string> lines, out string details)
+        {
+            if (lines.Count == 0)
+            {
+                details = "Arquivo vazio.";
+                return false;
+            }
+
+            if (!lines[0].Trim().Equals("#EXTM3U", StringComparison.OrdinalIgnoreCase))
+            {
+                details = "Cabeçalho #EXTM3U ausente.";
+                return false;
+            }
+
+            var extinfCount = lines.Count(x => x.TrimStart().StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase));
+            var urlCount = lines.Count(x => !string.IsNullOrWhiteSpace(x) && !x.TrimStart().StartsWith("#", StringComparison.Ordinal));
+
+            if (extinfCount == 0 || urlCount == 0)
+            {
+                details = "Entradas #EXTINF/URL insuficientes.";
+                return false;
+            }
+
+            var validUrlCount = lines
+                .Where(x => !string.IsNullOrWhiteSpace(x) && !x.TrimStart().StartsWith("#", StringComparison.Ordinal))
+                .Count(x => Uri.TryCreate(x.Trim(), UriKind.Absolute, out _));
+
+            details = $"#EXTINF: {extinfCount}, URLs: {urlCount}, URLs válidas: {validUrlCount}";
+            return validUrlCount > 0 && extinfCount == urlCount;
         }
 
         private async Task ExportDatabaseToM3uAsync()
@@ -2446,6 +2650,20 @@ namespace MeuGestorVODs
         protected void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class StringNullOrEmptyToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            var text = value as string;
+            return string.IsNullOrWhiteSpace(text) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotSupportedException();
         }
     }
 

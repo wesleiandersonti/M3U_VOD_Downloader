@@ -30,6 +30,24 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.19] - 2026-02-08
+
+### 🎉 Adicionado (Features)
+- **Arrastar e soltar para lista local**
+  - Área de `Arquivo Local` agora aceita drag-and-drop de `.m3u`, `.m3u8` e `.txt`.
+  - Placeholder visual "Arraste e solte sua lista aqui..." quando nenhum arquivo está selecionado.
+  - Validação de extensão no drop com aviso para arquivos inválidos.
+- **Feedback visual no hover de drop**
+  - Destaque de borda azul e fundo azul claro ao arrastar arquivo válido sobre a área.
+
+### 🔄 Alterado (Changes)
+- Botões do rodapé renomeados para:
+  - `Baixar txt VODs`
+  - `Baixar txt Canais`
+- Exportação desses botões agora gera playlist `.m3u` pronta para VLC, com validação de compatibilidade (`#EXTM3U`, pares `#EXTINF + URL`, URLs válidas).
+
+---
+
 ## [1.0.18] - 2026-02-08
 
 ### 🎉 Adicionado (Features)

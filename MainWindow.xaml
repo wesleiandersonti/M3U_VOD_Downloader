@@ -264,7 +264,7 @@
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              MinColumnWidth="70"
                              ScrollViewer.CanContentScroll="True"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Visible"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">

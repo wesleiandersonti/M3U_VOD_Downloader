@@ -353,10 +353,35 @@ namespace MeuGestorVODs
                 M3UUrlComboBox.Items.Clear();
                 foreach (var url in urls)
                 {
-                    M3UUrlComboBox.Items.Add(url.Url);
+                    if (IsRemoteM3uUrl(url.Url))
+                    {
+                        M3UUrlComboBox.Items.Add(url.Url);
+                    }
                 }
             }
             catch { }
+        }
+
+        private static bool IsRemoteM3uUrl(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            var text = value.Trim();
+            if (text.StartsWith("[LOCAL]", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            return uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
         }
 
         private async void ShowUrlHistory_Click(object sender, RoutedEventArgs e)
@@ -369,7 +394,9 @@ namespace MeuGestorVODs
 
             try
             {
-                var urls = await _databaseService.M3uUrls.GetAllAsync();
+                var urls = (await _databaseService.M3uUrls.GetAllAsync())
+                    .Where(u => IsRemoteM3uUrl(u.Url))
+                    .ToList();
                 var onlineCount = urls.Count(u => u.IsOnline);
                 var offlineCount = urls.Count(u => !u.IsOnline);
                 var archive = await _databaseService.M3uUrls.GetOfflineArchiveAsync();
@@ -614,6 +641,28 @@ namespace MeuGestorVODs
             if (string.IsNullOrWhiteSpace(M3UUrl))
             {
                 System.Windows.MessageBox.Show("Por favor, insira a URL do arquivo M3U", "Atenção", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!IsRemoteM3uUrl(M3UUrl))
+            {
+                var candidate = M3UUrl.Trim();
+                if (candidate.StartsWith("[LOCAL]", StringComparison.OrdinalIgnoreCase))
+                {
+                    candidate = candidate[7..].Trim();
+                }
+
+                var normalizedPath = NormalizePotentialLocalPath(candidate);
+                if (!string.IsNullOrWhiteSpace(normalizedPath) && File.Exists(normalizedPath))
+                {
+                    LocalFilePath = normalizedPath;
+                }
+
+                System.Windows.MessageBox.Show(
+                    "Esse campo aceita apenas URL online (http/https).\nUse o campo 'Arquivo Local' para playlists do seu PC.",
+                    "URL invalida para carregamento online",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 return;
             }
 
@@ -1969,17 +2018,7 @@ namespace MeuGestorVODs
                 BuildGroupIndex(_allEntries);
 
                 var (newVod, newLive) = PersistLinkDatabases(entries);
-                
-                // Salvar no histórico como arquivo local
-                if (_databaseService != null)
-                {
-                    await _databaseService.M3uUrls.SaveOrUpdateAsync(
-                        $"[LOCAL] {LocalFilePath}", 
-                        $"Arquivo local carregado em {DateTime.Now:dd/MM/yyyy HH:mm}", 
-                        isOnline: true, 
-                        entryCount: entries.Count);
-                }
-                
+
                 ApplyFilter();
                 
                 // Mostrar estatísticas do banco

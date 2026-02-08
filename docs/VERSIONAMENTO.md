@@ -118,6 +118,31 @@ Versão Inicial: 1.0.0
 
 ## 🚀 Fluxo de Trabalho
 
+### ⚠️ IMPORTANTE: Sempre mude a versão ao fazer build!
+
+**Regra de Ouro:** Sempre que fizer alterações e quiser que o app detecte atualização:
+
+```bash
+# 1. Faça suas alterações
+# 2. Commite
+# 3. CRIE NOVA TAG (não reutilize tag antiga!)
+git tag -a v1.0.X -m "Descrição"
+git push origin v1.0.X
+```
+
+**❌ NUNCA reutilize a mesma tag:**
+```bash
+# ERRADO - App não detectará atualização:
+git tag -d v1.0.10
+git tag -a v1.0.10 -m "Mesma versão"
+```
+
+**✅ SEMPRE crie versão nova:**
+```bash
+# CERTO - App detectará atualização:
+git tag -a v1.0.11 -m "Nova versão"
+```
+
 ### 1. Desenvolvimento
 ```bash
 # Durante desenvolvimento, sem tag

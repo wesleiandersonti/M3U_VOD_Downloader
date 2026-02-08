@@ -30,15 +30,19 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
-## [1.0.10] - 2026-02-08
+## [1.0.11] - 2026-02-08
 
 ### 🎉 Adicionado (Features)
 - **Suporte a arquivos locais M3U/M3U8/TXT**
   - Nova linha "Arquivo Local" na interface
-  - Botão "Procurar" para selecionar arquivo
-  - Botão "Analisar lista local" para carregar conteúdo
+  - Botão "Procurar" (laranja) para selecionar arquivo
+  - Botão "Analisar lista local" (verde, negrito) para carregar
   - Suporte a extensões: .m3u, .m3u8, .txt
   - Registra arquivo local no histórico de URLs
+
+---
+
+## [1.0.10] - 2026-02-08
 
 ### 🐛 Corrigido (Fixes)
 - Erro de build: `Cannot await 'void'` no método LoadM3UUrlHistory

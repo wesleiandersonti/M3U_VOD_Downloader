@@ -89,6 +89,11 @@ namespace MeuGestorVODs
             set { _currentVersionText = value; OnPropertyChanged(nameof(CurrentVersionText)); }
         }
 
+        public string WindowTitle
+        {
+            get => $"MEU GESTOR DE VODS v{GetCurrentAppVersion()}";
+        }
+
         public string ItemCountText
         {
             get => _itemCountText;

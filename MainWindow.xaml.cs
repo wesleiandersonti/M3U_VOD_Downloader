@@ -2002,26 +2002,8 @@ namespace MeuGestorVODs
             toolbar.Children.Add(btnPermitirHttp);
             Grid.SetRow(toolbar, 0);
 
-            // WebView2 Configuration
-            webView.CreationProperties = new CoreWebView2CreationProperties
-            {
-                UserDataFolder = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MeuGestorVODs",
-                    "WebView2Data",
-                    moduleName.Replace(" ", "_"))
-            };
-
-            webView.NavigationStarting += (s, e) =>
-            {
-                if (e.Uri?.StartsWith("http://") == true)
-                {
-                    webView.CoreWebView2?.Navigate(e.Uri);
-                }
-            };
-
             // Inicializa o WebView2
-            _ = InitializeWebViewAsync(webView, htmlPath);
+            InitializeWebView(webView, htmlPath);
             Grid.SetRow(webView, 1);
 
             grid.Children.Add(toolbar);
@@ -2035,24 +2017,46 @@ namespace MeuGestorVODs
             StatusMessage = $"Módulo {moduleName} aberto em nova aba.";
         }
 
-        private async System.Threading.Tasks.Task InitializeWebViewAsync(WebView2 webView, string htmlPath)
+        private void InitializeWebView(WebView2 webView, string htmlPath)
         {
             try
             {
-                await webView.EnsureCoreWebView2Async();
-                
-                if (webView.CoreWebView2 != null)
+                // Configura o WebView2
+                webView.CreationProperties = new CoreWebView2CreationProperties
                 {
-                    // Configurações para permitir conteúdo HTTP
-                    webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
-                    webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
-                    
-                    webView.Source = new Uri(Path.GetFullPath(htmlPath));
-                }
+                    UserDataFolder = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "MeuGestorVODs",
+                        "WebView2Data",
+                        DateTime.Now.Ticks.ToString())
+                };
+
+                // Evento quando o CoreWebView2 estiver pronto
+                webView.CoreWebView2InitializationCompleted += (s, e) =>
+                {
+                    if (e.IsSuccess && webView.CoreWebView2 != null)
+                    {
+                        // Configurações para permitir conteúdo HTTP e conteúdo misto
+                        webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+                        webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+                        webView.CoreWebView2.Settings.AreHostObjectsAllowed = true;
+                        
+                        // Navega para o arquivo HTML
+                        var fullPath = Path.GetFullPath(htmlPath);
+                        webView.CoreWebView2.Navigate($"file:///{fullPath.Replace("\\", "/")}");
+                    }
+                    else if (e.InitializationException != null)
+                    {
+                        System.Windows.MessageBox.Show($"Erro ao inicializar WebView2: {e.InitializationException.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                };
+
+                // Inicializa o CoreWebView2
+                webView.EnsureCoreWebView2Async();
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Erro ao inicializar WebView2: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"Erro ao configurar WebView2: {ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

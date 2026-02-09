@@ -1544,6 +1544,81 @@ namespace MeuGestorVODs
             StatusMessage = "Modulo DARK M3U CHECKER aberto.";
         }
 
+        private void MainMenuLisoFlix_Click(object sender, RoutedEventArgs e)
+        {
+            var window = new System.Windows.Window
+            {
+                Title = "LisoFlix",
+                Width = 640,
+                Height = 440,
+                MinWidth = 580,
+                MinHeight = 380,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 248, 252))
+            };
+
+            var root = new Grid { Margin = new Thickness(14) };
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                Text = "LisoFlix",
+                FontSize = 20,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            Grid.SetRow(title, 0);
+            root.Children.Add(title);
+
+            var subtitle = new TextBlock
+            {
+                Text = "Modulo reservado para recursos LisoFlix (catalogo, ingestao e automacoes).",
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 80, 95)),
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            Grid.SetRow(subtitle, 1);
+            root.Children.Add(subtitle);
+
+            var notes = new System.Windows.Controls.TextBox
+            {
+                IsReadOnly = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Text =
+                    "Planejamento do modulo LisoFlix:\n\n" +
+                    "- Integracao com fontes de conteudo\n" +
+                    "- Organizacao por colecoes/categorias\n" +
+                    "- Geracao de playlists e paines dedicados\n" +
+                    "- Rotinas de atualizacao automatica\n\n" +
+                    "Status atual: em desenvolvimento."
+            };
+            Grid.SetRow(notes, 2);
+            root.Children.Add(notes);
+
+            var closeButton = new System.Windows.Controls.Button
+            {
+                Content = "Fechar",
+                Width = 100,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+                Margin = new Thickness(0, 10, 0, 0),
+                IsDefault = true
+            };
+            closeButton.Click += (_, _) => window.Close();
+            Grid.SetRow(closeButton, 3);
+            root.Children.Add(closeButton);
+
+            window.Content = root;
+            window.ShowDialog();
+
+            StatusMessage = "Modulo LisoFlix aberto.";
+        }
+
         private static bool IsYouTubeUrl(string url)
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))

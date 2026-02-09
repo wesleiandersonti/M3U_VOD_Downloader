@@ -75,6 +75,8 @@ namespace MeuGestorVODs
         private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
         private const string LocalFileHistoryFileName = "local_file_history.json";
         private const string XuiOneConnectionFileName = "xui_one_connection.json";
+        private const string LisoFlixHtmlFileName = "LisoFlix.html";
+        private const string DarkBulletHtmlFileName = "DARK BULLET COM PLAYER INTEGRADO.HTML";
         private static readonly HashSet<string> LiveCategoryNames = new(StringComparer.OrdinalIgnoreCase)
         {
             "Canais",
@@ -1471,152 +1473,59 @@ namespace MeuGestorVODs
 
         private void MainMenuDarkM3uChecker_Click(object sender, RoutedEventArgs e)
         {
-            var window = new System.Windows.Window
+            if (TryOpenIntegratedHtml("DARK M3U CHECKER", DarkBulletHtmlFileName))
             {
-                Title = "DARK M3U CHECKER",
-                Width = 620,
-                Height = 420,
-                MinWidth = 560,
-                MinHeight = 360,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 248, 252))
-            };
+                return;
+            }
 
-            var root = new Grid { Margin = new Thickness(14) };
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            System.Windows.MessageBox.Show(
+                "Arquivo HTML do DARK M3U CHECKER nao encontrado:\n- " + DarkBulletHtmlFileName,
+                "DARK M3U CHECKER",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
 
-            var title = new TextBlock
-            {
-                Text = "DARK M3U CHECKER",
-                FontSize = 18,
-                FontWeight = FontWeights.Bold,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            Grid.SetRow(title, 0);
-            root.Children.Add(title);
-
-            var subtitle = new TextBlock
-            {
-                Text = "Modulo reservado para analise avancada de playlists e verificacao aprofundada de links.",
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 80, 95)),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-            Grid.SetRow(subtitle, 1);
-            root.Children.Add(subtitle);
-
-            var notes = new System.Windows.Controls.TextBox
-            {
-                IsReadOnly = true,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Text =
-                    "Planejamento desta tela:\n\n" +
-                    "- Verificacao de disponibilidade por lote com estrategias alternativas\n" +
-                    "- Diagnostico de bloqueios por servidor/CDN\n" +
-                    "- Relatorio detalhado de falhas por categoria\n" +
-                    "- Exportacao de resultados tecnicos\n\n" +
-                    "Status atual: em desenvolvimento."
-            };
-            Grid.SetRow(notes, 2);
-            root.Children.Add(notes);
-
-            var closeButton = new System.Windows.Controls.Button
-            {
-                Content = "Fechar",
-                Width = 100,
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
-                Margin = new Thickness(0, 10, 0, 0),
-                IsDefault = true
-            };
-            closeButton.Click += (_, _) => window.Close();
-            Grid.SetRow(closeButton, 3);
-            root.Children.Add(closeButton);
-
-            window.Content = root;
-            window.ShowDialog();
-
-            StatusMessage = "Modulo DARK M3U CHECKER aberto.";
+            StatusMessage = "Modulo DARK M3U CHECKER sem HTML integrado no momento.";
         }
 
         private void MainMenuLisoFlix_Click(object sender, RoutedEventArgs e)
         {
-            var window = new System.Windows.Window
+            if (TryOpenIntegratedHtml("LisoFlix", LisoFlixHtmlFileName))
             {
-                Title = "LisoFlix",
-                Width = 640,
-                Height = 440,
-                MinWidth = 580,
-                MinHeight = 380,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 248, 252))
+                return;
+            }
+
+            System.Windows.MessageBox.Show(
+                "Arquivo HTML do modulo LisoFlix nao encontrado:\n- " + LisoFlixHtmlFileName,
+                "LisoFlix",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            StatusMessage = "Modulo LisoFlix sem HTML integrado no momento.";
+        }
+
+        private bool TryOpenIntegratedHtml(string moduleName, string fileName)
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, fileName),
+                Path.Combine(Environment.CurrentDirectory, fileName),
+                Path.Combine(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..")), fileName)
             };
 
-            var root = new Grid { Margin = new Thickness(14) };
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var title = new TextBlock
+            var filePath = candidates.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                Text = "LisoFlix",
-                FontSize = 20,
-                FontWeight = FontWeights.Bold,
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-            Grid.SetRow(title, 0);
-            root.Children.Add(title);
+                return false;
+            }
 
-            var subtitle = new TextBlock
+            Process.Start(new ProcessStartInfo
             {
-                Text = "Modulo reservado para recursos LisoFlix (catalogo, ingestao e automacoes).",
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 80, 95)),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-            Grid.SetRow(subtitle, 1);
-            root.Children.Add(subtitle);
+                FileName = filePath,
+                UseShellExecute = true
+            });
 
-            var notes = new System.Windows.Controls.TextBox
-            {
-                IsReadOnly = true,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Text =
-                    "Planejamento do modulo LisoFlix:\n\n" +
-                    "- Integracao com fontes de conteudo\n" +
-                    "- Organizacao por colecoes/categorias\n" +
-                    "- Geracao de playlists e paines dedicados\n" +
-                    "- Rotinas de atualizacao automatica\n\n" +
-                    "Status atual: em desenvolvimento."
-            };
-            Grid.SetRow(notes, 2);
-            root.Children.Add(notes);
-
-            var closeButton = new System.Windows.Controls.Button
-            {
-                Content = "Fechar",
-                Width = 100,
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
-                Margin = new Thickness(0, 10, 0, 0),
-                IsDefault = true
-            };
-            closeButton.Click += (_, _) => window.Close();
-            Grid.SetRow(closeButton, 3);
-            root.Children.Add(closeButton);
-
-            window.Content = root;
-            window.ShowDialog();
-
-            StatusMessage = "Modulo LisoFlix aberto.";
+            StatusMessage = $"Modulo {moduleName} aberto: {Path.GetFileName(filePath)}";
+            return true;
         }
 
         private static bool IsYouTubeUrl(string url)

@@ -2220,8 +2220,10 @@ namespace MeuGestorVODs
 
                 var options = new StreamCheckOptions
                 {
-                    TimeoutSeconds = 6,
-                    MaxParallelism = ComputeParallelism(total)
+                    TimeoutSeconds = 8,
+                    MaxParallelism = ComputeParallelism(total),
+                    RetryCount = 1,
+                    RetryDelayMilliseconds = 300
                 };
 
                 await _streamCheckService.AnalyzeAsync(
@@ -2316,10 +2318,10 @@ namespace MeuGestorVODs
 
         private static int ComputeParallelism(int total)
         {
-            if (total <= 1000) return 20;
-            if (total <= 10000) return 40;
-            if (total <= 50000) return 56;
-            return 72;
+            if (total <= 1000) return 16;
+            if (total <= 10000) return 24;
+            if (total <= 50000) return 28;
+            return 32;
         }
 
         private static int ComputeDownloadParallelism(int total)

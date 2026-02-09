@@ -14,6 +14,8 @@ public sealed class StreamCheckOptions
 {
     public int TimeoutSeconds { get; set; } = 6;
     public int MaxParallelism { get; set; } = 48;
+    public int RetryCount { get; set; } = 1;
+    public int RetryDelayMilliseconds { get; set; } = 250;
 }
 
 public sealed class StreamCheckItemResult
@@ -56,91 +58,135 @@ public class StreamCheckService : IDisposable
 
         await Parallel.ForEachAsync(entries, parallelOptions, async (entry, token) =>
         {
-            var result = await CheckOneAsync(entry, options.TimeoutSeconds, token);
+            var result = await CheckOneAsync(entry, options, token);
             await onResult(result);
         });
     }
 
-    private async Task<StreamCheckItemResult> CheckOneAsync(M3UEntry entry, int timeoutSeconds, CancellationToken cancellationToken)
+    private async Task<StreamCheckItemResult> CheckOneAsync(M3UEntry entry, StreamCheckOptions options, CancellationToken cancellationToken)
     {
         var normalized = DuplicateDetectionService.NormalizeUrl(entry.Url);
         var host = TryGetHost(entry.Url);
-        var sw = Stopwatch.StartNew();
+        var retries = Math.Max(0, options.RetryCount);
+        var timeoutSeconds = Math.Max(2, options.TimeoutSeconds);
+        var delayMs = Math.Max(0, options.RetryDelayMilliseconds);
 
-        try
+        StreamCheckItemResult? lastFailure = null;
+
+        for (var attempt = 0; attempt <= retries; attempt++)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(2, timeoutSeconds)));
-            var requestToken = timeoutCts.Token;
+            var sw = Stopwatch.StartNew();
 
-            using var head = new HttpRequestMessage(HttpMethod.Head, entry.Url);
-            using var headResponse = await _httpClient.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, requestToken);
-            sw.Stop();
-
-            if ((int)headResponse.StatusCode < 400)
+            try
             {
-                return new StreamCheckItemResult
-                {
-                    Entry = entry,
-                    NormalizedUrl = normalized,
-                    ServerHost = host,
-                    Status = ItemStatus.Ok,
-                    IsOnline = true,
-                    ResponseTimeMs = sw.Elapsed.TotalMilliseconds,
-                    Details = $"HEAD {(int)headResponse.StatusCode}",
-                    CheckedAt = DateTime.Now
-                };
-            }
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+                var requestToken = timeoutCts.Token;
 
-            if (headResponse.StatusCode == HttpStatusCode.MethodNotAllowed || headResponse.StatusCode == HttpStatusCode.NotImplemented)
-            {
-                sw.Restart();
-                using var get = new HttpRequestMessage(HttpMethod.Get, entry.Url);
-                get.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 2048);
-                using var getResponse = await _httpClient.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, requestToken);
+                using var head = new HttpRequestMessage(HttpMethod.Head, entry.Url);
+                using var headResponse = await _httpClient.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, requestToken);
                 sw.Stop();
 
-                var ok = (int)getResponse.StatusCode < 400;
-                return new StreamCheckItemResult
+                if ((int)headResponse.StatusCode < 400)
                 {
-                    Entry = entry,
-                    NormalizedUrl = normalized,
-                    ServerHost = host,
-                    Status = ok ? ItemStatus.Ok : ItemStatus.Error,
-                    IsOnline = ok,
-                    ResponseTimeMs = sw.Elapsed.TotalMilliseconds,
-                    Details = $"GET {(int)getResponse.StatusCode}",
-                    CheckedAt = DateTime.Now
-                };
+                    return BuildResult(entry, normalized, host, true, sw.Elapsed.TotalMilliseconds, $"HEAD {(int)headResponse.StatusCode}");
+                }
+
+                if (ShouldFallbackToGet(entry.Url, headResponse.StatusCode))
+                {
+                    var getResult = await TryRangeGetProbeAsync(entry.Url, requestToken);
+                    if (getResult.Ok)
+                    {
+                        return BuildResult(entry, normalized, host, true, getResult.LatencyMs, $"GET {(int)getResult.StatusCode}");
+                    }
+
+                    lastFailure = BuildResult(entry, normalized, host, false, getResult.LatencyMs, $"GET {(int)getResult.StatusCode}");
+                }
+                else
+                {
+                    lastFailure = BuildResult(entry, normalized, host, false, sw.Elapsed.TotalMilliseconds, $"HEAD {(int)headResponse.StatusCode}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                sw.Stop();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                lastFailure = BuildResult(entry, normalized, host, false, sw.Elapsed.TotalMilliseconds, "Timeout");
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                lastFailure = BuildResult(entry, normalized, host, false, sw.Elapsed.TotalMilliseconds, ex.Message);
             }
 
-            return new StreamCheckItemResult
+            if (attempt < retries && delayMs > 0)
             {
-                Entry = entry,
-                NormalizedUrl = normalized,
-                ServerHost = host,
-                Status = ItemStatus.Error,
-                IsOnline = false,
-                ResponseTimeMs = sw.Elapsed.TotalMilliseconds,
-                Details = $"HEAD {(int)headResponse.StatusCode}",
-                CheckedAt = DateTime.Now
-            };
+                await Task.Delay(delayMs * (attempt + 1), cancellationToken);
+            }
         }
-        catch (Exception ex)
+
+        return lastFailure ?? BuildResult(entry, normalized, host, false, 0, "Falha desconhecida");
+    }
+
+    private async Task<(bool Ok, HttpStatusCode StatusCode, double LatencyMs)> TryRangeGetProbeAsync(string url, CancellationToken requestToken)
+    {
+        var sw = Stopwatch.StartNew();
+
+        using var get = new HttpRequestMessage(HttpMethod.Get, url);
+        get.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 4096);
+        using var getResponse = await _httpClient.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, requestToken);
+        sw.Stop();
+
+        if (getResponse.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
         {
-            sw.Stop();
-            return new StreamCheckItemResult
-            {
-                Entry = entry,
-                NormalizedUrl = normalized,
-                ServerHost = host,
-                Status = ItemStatus.Error,
-                IsOnline = false,
-                ResponseTimeMs = sw.Elapsed.TotalMilliseconds,
-                Details = ex.Message,
-                CheckedAt = DateTime.Now
-            };
+            return (true, getResponse.StatusCode, sw.Elapsed.TotalMilliseconds);
         }
+
+        return ((int)getResponse.StatusCode < 400, getResponse.StatusCode, sw.Elapsed.TotalMilliseconds);
+    }
+
+    private static bool ShouldFallbackToGet(string url, HttpStatusCode headStatus)
+    {
+        if (headStatus == HttpStatusCode.MethodNotAllowed || headStatus == HttpStatusCode.NotImplemented)
+        {
+            return true;
+        }
+
+        if (headStatus == HttpStatusCode.Forbidden || headStatus == HttpStatusCode.NotFound ||
+            headStatus == HttpStatusCode.TooManyRequests || (int)headStatus >= 500)
+        {
+            return true;
+        }
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            var path = uri.AbsolutePath.ToLowerInvariant();
+            if (path.EndsWith(".m3u8") || path.EndsWith(".ts") || path.EndsWith(".mpd"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static StreamCheckItemResult BuildResult(M3UEntry entry, string normalized, string host, bool ok, double latencyMs, string details)
+    {
+        return new StreamCheckItemResult
+        {
+            Entry = entry,
+            NormalizedUrl = normalized,
+            ServerHost = host,
+            Status = ok ? ItemStatus.Ok : ItemStatus.Error,
+            IsOnline = ok,
+            ResponseTimeMs = latencyMs,
+            Details = details,
+            CheckedAt = DateTime.Now
+        };
     }
 
     private static string TryGetHost(string url)

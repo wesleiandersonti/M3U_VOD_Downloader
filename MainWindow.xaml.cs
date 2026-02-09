@@ -57,6 +57,7 @@ namespace MeuGestorVODs
         private string _localFilePath = "";
         private string _statusMessage = "Pronto";
         private string _currentVersionText = "Versao atual: -";
+        private bool _isUpdateAvailable = false;
         private string _itemCountText = "Itens: 0";
         private string _groupCountText = "Grupos: 0";
         private string _groupFilterInfoText = "";
@@ -146,6 +147,12 @@ namespace MeuGestorVODs
         {
             get => _currentVersionText;
             set { _currentVersionText = value; OnPropertyChanged(nameof(CurrentVersionText)); }
+        }
+
+        public bool IsUpdateAvailable
+        {
+            get => _isUpdateAvailable;
+            set { _isUpdateAvailable = value; OnPropertyChanged(nameof(IsUpdateAvailable)); }
         }
 
         public string WindowTitle
@@ -281,6 +288,9 @@ namespace MeuGestorVODs
             GroupCountText = "Grupos: 0";
             GroupFilterInfoText = "";
             SelectedAnalysisFilter = "Todos";
+
+            // Verifica atualizações silenciosamente ao iniciar
+            _ = CheckForUpdatesSilentAsync();
 
             _linkCheckTimer.Tick += LinkCheckTimer_Tick;
             StateChanged += (_, _) => UpdateWindowStateButton();
@@ -4158,9 +4168,11 @@ namespace MeuGestorVODs
                             MessageBoxButton.OK,
                             MessageBoxImage.Information);
                         StatusMessage = "Aplicativo ja esta atualizado";
+                        IsUpdateAvailable = false;
                         return;
                     }
 
+                    IsUpdateAvailable = true;
                     var notes = BuildManifestNotesPreview(manifest);
                     var confirmManifest = System.Windows.MessageBox.Show(
                         $"Nova versao encontrada: {manifest.Version}.\nVersao atual: {currentVersion}.\n\n" +
@@ -4211,9 +4223,11 @@ namespace MeuGestorVODs
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
                     StatusMessage = "Aplicativo ja esta atualizado";
+                    IsUpdateAvailable = false;
                     return;
                 }
 
+                IsUpdateAvailable = true;
                 var releaseNotes = BuildReleaseNotesPreview(latest.Body);
                 var confirm = System.Windows.MessageBox.Show(
                     $"Nova versao encontrada: {latest.TagName}.\nVersao atual: {currentVersion}.\n\n" +
@@ -4240,6 +4254,43 @@ namespace MeuGestorVODs
             {
                 IsLoading = false;
                 _isUpdateInProgress = false;
+            }
+        }
+
+        private async System.Threading.Tasks.Task CheckForUpdatesSilentAsync()
+        {
+            try
+            {
+                var currentVersion = GetCurrentAppVersion();
+                
+                // Tenta obter do manifesto primeiro
+                var manifest = await GetLatestUpdateManifestAsync();
+                if (manifest != null)
+                {
+                    if (IsNewerRelease(manifest.Version, currentVersion))
+                    {
+                        IsUpdateAvailable = true;
+                        StatusMessage = $"Nova versao disponivel: {manifest.Version}";
+                        return;
+                    }
+                }
+
+                // Se não achou no manifesto, tenta na release
+                var latest = await GetLatestInstallableReleaseAsync();
+                if (latest != null && IsNewerRelease(latest.TagName, currentVersion))
+                {
+                    IsUpdateAvailable = true;
+                    StatusMessage = $"Nova versao disponivel: {latest.TagName}";
+                    return;
+                }
+
+                // Se chegou aqui, está atualizado
+                IsUpdateAvailable = false;
+            }
+            catch
+            {
+                // Em caso de erro na verificação silenciosa, apenas ignora
+                IsUpdateAvailable = false;
             }
         }
 

@@ -684,7 +684,19 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
-                <TextBlock Grid.Column="1" Text="{Binding CurrentVersionText}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" FontSize="11"/>
+                <TextBlock Grid.Column="1" Text="{Binding CurrentVersionText}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" FontSize="11">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource BaseTextBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsUpdateAvailable}" Value="True">
+                                    <Setter Property="Foreground" Value="#E50914"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
                 <Button Grid.Column="2" Content="Verificar Atualizações" Click="CheckUpdates_Click" Padding="10,4" Margin="0,0,8,0" Background="#FF9800" Foreground="White" FontSize="11" VerticalAlignment="Center" ToolTip="Verifica se existe uma nova versão disponível no GitHub"/>
                 <Button Grid.Column="3" Content="Voltar Versão" Click="RollbackVersion_Click" Padding="10,4" Margin="0,0,8,0" Background="#455A64" Foreground="White" FontSize="11" VerticalAlignment="Center" ToolTip="Restaura para uma versão anterior do aplicativo"/>
                 <Button Grid.Column="4" Content="Baixar txt VODs" Click="OpenVodLinksTxt_Click" Padding="10,4" Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center" ToolTip="Exporta playlist de VODs em formato compatível com VLC"/>

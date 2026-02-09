@@ -73,6 +73,7 @@ namespace MeuGestorVODs
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
         private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
         private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
+        private const string LocalFileHistoryFileName = "local_file_history.json";
         private const string XuiOneConnectionFileName = "xui_one_connection.json";
         private static readonly HashSet<string> LiveCategoryNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -92,6 +93,7 @@ namespace MeuGestorVODs
         public ObservableCollection<M3UEntry> Entries { get; set; } = new ObservableCollection<M3UEntry>();
         public ObservableCollection<M3UEntry> FilteredEntries { get; set; } = new ObservableCollection<M3UEntry>();
         public ObservableCollection<DownloadItem> Downloads { get; set; } = new ObservableCollection<DownloadItem>();
+        public ObservableCollection<string> LocalFileHistory { get; } = new ObservableCollection<string>();
         public ObservableCollection<GroupCategoryItem> GroupCategories { get; set; } = new ObservableCollection<GroupCategoryItem>();
         public ObservableCollection<ServerScoreResult> ServerScores { get; set; } = new ObservableCollection<ServerScoreResult>();
         public ObservableCollection<string> AnalysisFilterOptions { get; } = new ObservableCollection<string>
@@ -269,6 +271,7 @@ namespace MeuGestorVODs
             EnsureAndLoadDownloadStructure();
             InitializeDatabase();
             EnsureLinkDatabaseFiles();
+            LoadLocalFileHistory();
             _releaseClient.DefaultRequestHeaders.Add("User-Agent", "MeuGestorVODs");
             CurrentVersionText = $"Versao atual: {GetCurrentAppVersion()}";
             ItemCountText = "Itens: 0";
@@ -371,6 +374,120 @@ namespace MeuGestorVODs
                 }
             }
             catch { }
+        }
+
+        private void LoadLocalFileHistory()
+        {
+            LocalFileHistory.Clear();
+
+            try
+            {
+                var path = GetLocalFileHistoryFilePath();
+                if (!File.Exists(path))
+                {
+                    return;
+                }
+
+                var json = File.ReadAllText(path);
+                var items = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+                var existing = items
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Where(File.Exists)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(30)
+                    .ToList();
+
+                foreach (var item in existing)
+                {
+                    LocalFileHistory.Add(item);
+                }
+
+                SaveLocalFileHistory();
+            }
+            catch
+            {
+            }
+        }
+
+        private void SaveLocalFileHistory()
+        {
+            try
+            {
+                var path = GetLocalFileHistoryFilePath();
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var data = LocalFileHistory
+                    .Where(File.Exists)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(30)
+                    .ToList();
+
+                var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(path, json);
+            }
+            catch
+            {
+            }
+        }
+
+        private void AddLocalFileToHistory(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            var normalized = Path.GetFullPath(filePath);
+            var existing = LocalFileHistory.FirstOrDefault(x =>
+                string.Equals(x, normalized, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(existing))
+            {
+                LocalFileHistory.Remove(existing);
+            }
+
+            LocalFileHistory.Insert(0, normalized);
+
+            while (LocalFileHistory.Count > 30)
+            {
+                LocalFileHistory.RemoveAt(LocalFileHistory.Count - 1);
+            }
+
+            SaveLocalFileHistory();
+        }
+
+        private void RefreshLocalFileHistory()
+        {
+            var invalid = LocalFileHistory.Where(x => !File.Exists(x)).ToList();
+            if (invalid.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var missing in invalid)
+            {
+                LocalFileHistory.Remove(missing);
+            }
+
+            if (!string.IsNullOrWhiteSpace(LocalFilePath) && !File.Exists(LocalFilePath))
+            {
+                LocalFilePath = string.Empty;
+            }
+
+            SaveLocalFileHistory();
+        }
+
+        private static string GetLocalFileHistoryFilePath()
+        {
+            var baseFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MeuGestorVODs");
+            return Path.Combine(baseFolder, LocalFileHistoryFileName);
         }
 
         private static bool IsRemoteM3uUrl(string? value)
@@ -667,6 +784,7 @@ namespace MeuGestorVODs
                 if (!string.IsNullOrWhiteSpace(normalizedPath) && File.Exists(normalizedPath))
                 {
                     LocalFilePath = normalizedPath;
+                    AddLocalFileToHistory(LocalFilePath);
                 }
 
                 System.Windows.MessageBox.Show(
@@ -2497,8 +2615,30 @@ namespace MeuGestorVODs
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 LocalFilePath = dialog.FileName;
+                AddLocalFileToHistory(LocalFilePath);
                 IsLocalFileDragOver = false;
                 StatusMessage = $"Arquivo selecionado: {Path.GetFileName(LocalFilePath)}";
+            }
+        }
+
+        private void LocalFileComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            RefreshLocalFileHistory();
+        }
+
+        private void LocalFileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is string selectedPath)
+            {
+                if (File.Exists(selectedPath))
+                {
+                    LocalFilePath = selectedPath;
+                    AddLocalFileToHistory(selectedPath);
+                }
+                else
+                {
+                    RefreshLocalFileHistory();
+                }
             }
         }
 
@@ -2537,6 +2677,7 @@ namespace MeuGestorVODs
             }
 
             LocalFilePath = filePath;
+            AddLocalFileToHistory(LocalFilePath);
             StatusMessage = $"Arquivo local recebido por arrastar e soltar: {Path.GetFileName(LocalFilePath)}";
             e.Handled = true;
         }
@@ -2729,9 +2870,12 @@ namespace MeuGestorVODs
 
             if (!File.Exists(LocalFilePath))
             {
+                RefreshLocalFileHistory();
                 System.Windows.MessageBox.Show("Arquivo não encontrado.", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
+            AddLocalFileToHistory(LocalFilePath);
 
             try
             {

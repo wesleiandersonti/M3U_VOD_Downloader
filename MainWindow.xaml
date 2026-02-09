@@ -222,17 +222,22 @@
                         </Style>
                     </Border.Style>
                     <Grid>
-                        <TextBox x:Name="LocalFileTextBox"
-                                 Text="{Binding LocalFilePath}"
-                                 Padding="5"
-                                 IsReadOnly="True"
-                                 AllowDrop="True"
-                                 DragEnter="LocalFileDropZone_DragEnter"
-                                 DragOver="LocalFileDropZone_DragOver"
-                                 DragLeave="LocalFileDropZone_DragLeave"
-                                 Drop="LocalFileDropZone_Drop"
-                                 BorderThickness="0"
-                                 Background="Transparent"/>
+                        <ComboBox x:Name="LocalFileComboBox"
+                                  Text="{Binding LocalFilePath, UpdateSourceTrigger=PropertyChanged}"
+                                  ItemsSource="{Binding LocalFileHistory}"
+                                  IsEditable="True"
+                                  IsReadOnly="True"
+                                  StaysOpenOnEdit="True"
+                                  DropDownOpened="LocalFileComboBox_DropDownOpened"
+                                  SelectionChanged="LocalFileComboBox_SelectionChanged"
+                                  Padding="4"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  AllowDrop="True"
+                                  DragEnter="LocalFileDropZone_DragEnter"
+                                  DragOver="LocalFileDropZone_DragOver"
+                                  DragLeave="LocalFileDropZone_DragLeave"
+                                  Drop="LocalFileDropZone_Drop"/>
                         <TextBlock Text="Arraste e solte sua lista aqui..."
                                    Margin="8,0,0,0"
                                    VerticalAlignment="Center"

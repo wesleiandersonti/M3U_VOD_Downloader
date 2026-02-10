@@ -22,10 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="LisoFlix.html">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
     <None Update="DARK BULLET COM PLAYER INTEGRADO.HTML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

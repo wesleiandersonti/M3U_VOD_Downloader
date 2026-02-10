@@ -1,8 +1,10 @@
 {
-  "version": "1.0.43",
-  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.43/MeuGestorVODs-Setup-v1.0.43.exe",
+  "version": "1.0.44",
+  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.44/MeuGestorVODs-Setup-v1.0.44.exe",
   "sha256": "",
   "notes": [
+    "CORREÇÃO: Aba 'MEU GESTOR DE VODS' agora é fixa e não pode ser fechada",
+    "CORREÇÃO: Removido botão de fechar (X) da aba principal do sistema",
     "CORREÇÃO CRÍTICA: LisoFlix e DARK M3U CHECKER agora abrem corretamente nas abas",
     "CORREÇÃO: Reestruturado layout - TabControl movido para área de conteúdo principal",
     "CORREÇÃO: Conteúdo dos módulos agora é exibido corretamente ao abrir",

@@ -66,6 +66,9 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource ChromeTabHoverBackground}"/>
                             </Trigger>
+                            <DataTrigger Binding="{Binding Header}" Value="MEU GESTOR DE VODS">
+                                <Setter TargetName="CloseButton" Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>

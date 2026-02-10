@@ -1092,15 +1092,25 @@ namespace MeuGestorVODs
             {
                 // Find the parent TabItem
                 var tabItem = FindParent<TabItem>(btn);
-                if (tabItem != null && ChromeTabControl.Items.Count > 1)
+                if (tabItem != null)
                 {
-                    ChromeTabControl.Items.Remove(tabItem);
-                    StatusMessage = "Aba fechada.";
-                }
-                else if (ChromeTabControl.Items.Count == 1)
-                {
-                    System.Windows.MessageBox.Show("Não é possível fechar a última aba.", "Aviso", 
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    // Verificar se é a aba principal "MEU GESTOR DE VODS"
+                    if (tabItem.Header?.ToString() == "MEU GESTOR DE VODS")
+                    {
+                        // A aba principal não pode ser fechada
+                        return;
+                    }
+                    
+                    if (ChromeTabControl.Items.Count > 1)
+                    {
+                        ChromeTabControl.Items.Remove(tabItem);
+                        StatusMessage = "Aba fechada.";
+                    }
+                    else if (ChromeTabControl.Items.Count == 1)
+                    {
+                        System.Windows.MessageBox.Show("Não é possível fechar a última aba.", "Aviso", 
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 }
             }
         }

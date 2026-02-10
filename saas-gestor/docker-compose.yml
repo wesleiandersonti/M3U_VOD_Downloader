@@ -33,9 +33,6 @@ services:
       - redis
     networks:
       - saas-network
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
 
   # ==========================================
   # Frontend (React)

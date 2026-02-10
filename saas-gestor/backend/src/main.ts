@@ -21,7 +21,7 @@ async function bootstrap() {
   });
 
   // Global validation pipe
-  app.useGlobalPipe(
+  app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,

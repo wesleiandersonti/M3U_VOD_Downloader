@@ -6,84 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Sistema Gestor SaaS - Gerenciamento completo de aplicações e IPTV" />
     <title>SaaS Gestor</title>
-    <style>
-      body {
-        margin: 0;
-        background: #f3f4f6;
-        color: #111827;
-        font-family: Arial, sans-serif;
-      }
-      .boot {
-        max-width: 760px;
-        margin: 32px auto;
-        padding: 20px;
-        background: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
-      }
-      .boot h1 {
-        margin: 0 0 10px;
-      }
-      .boot p {
-        margin: 0;
-        color: #4b5563;
-      }
-      .boot .row {
-        margin-top: 10px;
-      }
-      .boot .ok {
-        color: #047857;
-        font-weight: 700;
-      }
-      .boot .err {
-        color: #b91c1c;
-        font-weight: 700;
-      }
-      .boot a {
-        color: #2563eb;
-      }
-    </style>
   </head>
   <body>
-    <div id="root">
-      <div class="boot">
-        <h1>SaaS Gestor</h1>
-        <p id="boot-status">Painel inicial carregando.</p>
-        <p class="row">API: <a href="/api/v1/health" target="_blank" rel="noreferrer">/api/v1/health</a></p>
-        <p class="row">Docs: <a href="/api/docs" target="_blank" rel="noreferrer">/api/docs</a></p>
-        <p class="row" id="boot-time"></p>
-      </div>
-    </div>
-    <noscript>
-      <div class="boot">
-        <h1>SaaS Gestor</h1>
-        <p>JavaScript esta desativado no navegador.</p>
-      </div>
-    </noscript>
-    <script>
-      (function () {
-        var statusEl = document.getElementById('boot-status')
-        var timeEl = document.getElementById('boot-time')
-        if (!statusEl) return
-
-        fetch('/api/v1/health', { cache: 'no-store' })
-          .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status)
-            return r.json()
-          })
-          .then(function (data) {
-            statusEl.textContent = 'Sistema online na rede local.'
-            statusEl.className = 'ok'
-            if (timeEl) {
-              timeEl.textContent = 'Health timestamp: ' + (data.timestamp || '-')
-            }
-          })
-          .catch(function (err) {
-            statusEl.textContent = 'Frontend online, API indisponivel: ' + err.message
-            statusEl.className = 'err'
-          })
-      })()
-    </script>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

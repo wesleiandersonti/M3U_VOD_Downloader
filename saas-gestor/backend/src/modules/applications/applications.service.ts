@@ -4,7 +4,6 @@ import { Repository, FindManyOptions } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Application, ApplicationStatus, ApplicationType, ApplicationEnvironment } from './entities/application.entity';
-import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user.entity';
 
 export interface CreateApplicationDto {
@@ -116,7 +115,12 @@ export class ApplicationsService {
   /**
    * Update application
    */
-  async update(id: number, updateDto: UpdateApplicationDto, tenantId: number, user: User): Promise<Application> {
+  async update(
+    id: number,
+    updateDto: UpdateApplicationDto,
+    tenantId: number,
+    user: { role: UserRole },
+  ): Promise<Application> {
     // Check permissions
     if (user.role !== UserRole.ADMIN && user.role !== UserRole.DEVOPS) {
       throw new ForbiddenException('Insufficient permissions');
@@ -146,7 +150,7 @@ export class ApplicationsService {
   /**
    * Delete application
    */
-  async remove(id: number, tenantId: number, user: User): Promise<void> {
+  async remove(id: number, tenantId: number, user: { role: UserRole }): Promise<void> {
     if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admins can delete applications');
     }

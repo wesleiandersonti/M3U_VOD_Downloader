@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Build, BuildStatus } from './entities/build.entity';
-import { Application } from './entities/application.entity';
+import { Application, ApplicationStatus } from './entities/application.entity';
 import { ApplicationsService } from './applications.service';
 
 export interface CreateBuildDto {

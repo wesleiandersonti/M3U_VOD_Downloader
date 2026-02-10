@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import * as bcrypt from 'bcrypt';
-import { User, UserStatus } from '../modules/users/entities/user.entity';
+import { User, UserRole, UserStatus } from '../modules/users/entities/user.entity';
 import { Tenant, TenantStatus } from '../modules/tenants/entities/tenant.entity';
 
 export interface JwtPayload {
@@ -168,9 +168,12 @@ export class AuthService {
       name: userName,
       email,
       password: hashedPassword,
+      role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
     });
     await this.userRepository.save(user);
+
+    user.tenant = tenant;
 
     return this.login(user);
   }

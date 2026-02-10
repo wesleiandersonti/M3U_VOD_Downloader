@@ -113,7 +113,7 @@ export class BuildsController {
 
           // Stop streaming if build is completed, failed, or cancelled
           if (
-            build.status === BuildStatus.COMPLETED ||
+            build.status === BuildStatus.SUCCESS ||
             build.status === BuildStatus.FAILED ||
             build.status === BuildStatus.CANCELLED
           ) {

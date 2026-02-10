@@ -8,7 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Tenant } from './tenant.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 export enum UserRole {
   ADMIN = 'admin',

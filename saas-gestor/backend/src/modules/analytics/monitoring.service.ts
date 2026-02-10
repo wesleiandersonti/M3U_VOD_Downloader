@@ -1,8 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Redis } from 'ioredis';
-import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
 import { SystemHealth } from './entities/analytics-metric.entity';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -76,12 +75,20 @@ export class MonitoringService implements OnModuleInit {
   private readonly logger = new Logger(MonitoringService.name);
   private systemStatus: SystemStatus | null = null;
   private lastStatusUpdate: Date | null = null;
+  private readonly redis: Redis;
 
   constructor(
     @InjectRepository(SystemHealth)
     private systemHealthRepository: Repository<SystemHealth>,
-    @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) {
+    this.redis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: Number(process.env.REDIS_PORT || 6379),
+      password: process.env.REDIS_PASSWORD || undefined,
+      lazyConnect: true,
+      maxRetriesPerRequest: 3,
+    });
+  }
 
   onModuleInit() {
     // Start periodic health checks

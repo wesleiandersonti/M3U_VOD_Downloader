@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import * as simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { exec } from 'child_process';

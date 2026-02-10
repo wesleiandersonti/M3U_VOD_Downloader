@@ -195,7 +195,7 @@ export class DatabaseService {
       (updateDto as any).connectionOptions = JSON.stringify(updateDto.connectionOptions);
     }
 
-    await this.dbConnectionRepository.update(id, updateDto);
+    await this.dbConnectionRepository.update(id, updateDto as any);
 
     // Close existing connection if open
     await this.closeConnection(id);

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import {
   AnalyticsMetric,
   AnalyticsDailySummary,
@@ -225,11 +225,11 @@ export class AnalyticsService {
         where: {
           tenantId,
           applicationId,
-          metricType: [
+          metricType: In([
             MetricType.BUILD_STARTED,
             MetricType.BUILD_COMPLETED,
             MetricType.BUILD_FAILED,
-          ],
+          ]),
           createdAt: Between(startDate, endDate),
         },
         order: { createdAt: 'DESC' },
@@ -238,12 +238,12 @@ export class AnalyticsService {
         where: {
           tenantId,
           applicationId,
-          metricType: [
+          metricType: In([
             MetricType.DEPLOYMENT_STARTED,
             MetricType.DEPLOYMENT_COMPLETED,
             MetricType.DEPLOYMENT_FAILED,
             MetricType.DEPLOYMENT_ROLLED_BACK,
-          ],
+          ]),
           createdAt: Between(startDate, endDate),
         },
         order: { createdAt: 'DESC' },

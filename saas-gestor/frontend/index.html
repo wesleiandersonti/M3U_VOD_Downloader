@@ -28,16 +28,30 @@
         margin: 0;
         color: #4b5563;
       }
+      .boot .row {
+        margin-top: 10px;
+      }
+      .boot .ok {
+        color: #047857;
+        font-weight: 700;
+      }
+      .boot .err {
+        color: #b91c1c;
+        font-weight: 700;
+      }
+      .boot a {
+        color: #2563eb;
+      }
     </style>
   </head>
   <body>
     <div id="root">
       <div class="boot">
         <h1>SaaS Gestor</h1>
-        <p>Painel inicial carregando.</p>
-        <p style="margin-top:10px">
-          API: <a href="/api/v1/health">/api/v1/health</a> | Docs: <a href="/api/docs">/api/docs</a>
-        </p>
+        <p id="boot-status">Painel inicial carregando.</p>
+        <p class="row">API: <a href="/api/v1/health" target="_blank" rel="noreferrer">/api/v1/health</a></p>
+        <p class="row">Docs: <a href="/api/docs" target="_blank" rel="noreferrer">/api/docs</a></p>
+        <p class="row" id="boot-time"></p>
       </div>
     </div>
     <noscript>
@@ -46,6 +60,30 @@
         <p>JavaScript esta desativado no navegador.</p>
       </div>
     </noscript>
+    <script>
+      (function () {
+        var statusEl = document.getElementById('boot-status')
+        var timeEl = document.getElementById('boot-time')
+        if (!statusEl) return
+
+        fetch('/api/v1/health', { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status)
+            return r.json()
+          })
+          .then(function (data) {
+            statusEl.textContent = 'Sistema online na rede local.'
+            statusEl.className = 'ok'
+            if (timeEl) {
+              timeEl.textContent = 'Health timestamp: ' + (data.timestamp || '-')
+            }
+          })
+          .catch(function (err) {
+            statusEl.textContent = 'Frontend online, API indisponivel: ' + err.message
+            statusEl.className = 'err'
+          })
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

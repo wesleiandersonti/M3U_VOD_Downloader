@@ -1,0 +1,2 @@
+# Pasta usada pelo MariaDB para scripts de inicialização (/docker-entrypoint-initdb.d).
+# Coloque aqui arquivos .sql ou .sh para rodar na primeira criação do banco.

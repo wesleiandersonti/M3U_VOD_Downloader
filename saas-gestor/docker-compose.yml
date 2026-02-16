@@ -22,15 +22,18 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-${JWT_SECRET}}
       JWT_EXPIRATION: 1h
       JWT_REFRESH_EXPIRATION: 7d
     ports:
       - "3000:3000"
     depends_on:
-      - mariadb-master
-      - mariadb-slave
-      - redis
+      mariadb-master:
+        condition: service_healthy
+      mariadb-slave:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - saas-network
 
@@ -67,6 +70,12 @@ services:
     volumes:
       - mariadb-master-data:/var/lib/mysql
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     ports:
       - "3306:3306"
     networks:
@@ -89,7 +98,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: saas_gestor
-      MYSQL_USER: ${DB_USER}
+      MYSQL_USER: ${DB_USER:-saas_app}
       MYSQL_PASSWORD: ${DB_APP_PASSWORD}
     volumes:
       - mariadb-slave-data:/var/lib/mysql
@@ -98,7 +107,14 @@ services:
     networks:
       - saas-network
     depends_on:
-      - mariadb-master
+      mariadb-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: >
       --server-id=2
       --relay-log=mysql-relay-bin

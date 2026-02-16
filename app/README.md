@@ -175,12 +175,22 @@ Workflow em `.github/workflows/build.yml`:
 .
 ├── MainWindow.xaml
 ├── MainWindow.xaml.cs
+├── MainWindow.Constants.cs
+├── MainWindow.Updates.cs
+├── ViewModels/
+│   └── MainViewModel.cs
+├── Repositories/
+│   ├── Interfaces.cs
+│   ├── DatabaseService.cs
+│   └── MigrationService.cs
 ├── Services.cs
+├── AnalysisServices.cs
 ├── App.xaml
 ├── App.xaml.cs
 ├── MeuGestorVODs.csproj
 ├── installer/
 │   └── MeuGestorVODs.iss
+├── legacy/                 # Pastas/arquivos legados (ver legacy/README.md)
 └── .github/workflows/
     └── build.yml
 ```

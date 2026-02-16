@@ -158,6 +158,12 @@ M3U_VOD_Downloader-master/
 │   ├── DatabaseService.cs        # Serviço SQLite
 │   └── MigrationService.cs       # Migração TXT → SQLite
 │
+├── 📂 ViewModels/                # MVVM – estado da UI
+│   └── MainViewModel.cs          # ViewModel principal
+│
+├── 📂 legacy/                    # Arquivos e pastas legados (fora do build)
+│   └── README.md                 # Descrição do conteúdo
+│
 ├── 📂 docs/                      # Documentação
 │   ├── ARCHITECTURE.md           # Arquitetura XUI One
 │   ├── DATA_MODEL.md             # Modelos de dados
@@ -167,7 +173,7 @@ M3U_VOD_Downloader-master/
 │   └── build.yml                 # CI/CD GitHub Actions
 │
 ├── MainWindow.xaml               # Interface principal
-├── MainWindow.xaml.cs            # Lógica principal
+├── MainWindow.xaml.cs            # Lógica principal (delega estado ao ViewModel)
 ├── Services.cs                   # Serviços M3U e Download
 ├── MeuGestorVODs.csproj          # Projeto .NET 8
 ├── build_completo.bat            # Script build completo
@@ -221,7 +227,7 @@ M3U_VOD_Downloader-master/
 - Filtros e busca
 - Atualização automática via GitHub
 
-### ✅ Versão 1.0.9 (Atual)
+### ✅ Versão 1.0.43 (Atual)
 - **SQLite como banco principal**
 - **Repository Pattern** (preparado para PostgreSQL futuro)
 - **Migração automática** de arquivos TXT
@@ -345,6 +351,6 @@ git push origin v1.0.10
 
 ---
 
-**Última atualização:** 08/02/2026
-**Versão atual:** 1.0.9
+**Última atualização:** 10/02/2026
+**Versão atual:** 1.0.43
 **Próxima versão planejada:** 1.1.0 (SaaS ready)

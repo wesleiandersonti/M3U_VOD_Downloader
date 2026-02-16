@@ -1,0 +1,49 @@
+using System;
+using System.Collections.Generic;
+
+namespace MeuGestorVODs
+{
+    /// <summary>
+    /// Constantes e enums compartilhados da janela principal (partial).
+    /// </summary>
+    public partial class MainWindow
+    {
+        private enum LinkCheckScheduleMode
+        {
+            Manual,
+            Every3Hours,
+            Every6Hours,
+            Every12Hours
+        }
+
+        private enum MonitorPanelLayout
+        {
+            Normal,
+            Minimized,
+            Maximized
+        }
+
+        private enum AppThemeMode
+        {
+            System,
+            Light,
+            Dark
+        }
+
+        private const string DownloadStructureFileName = "estrutura_downloads.txt";
+        private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
+        private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
+        private const string LocalFileHistoryFileName = "local_file_history.json";
+        private const string XuiOneConnectionFileName = "xui_one_connection.json";
+        private const string LisoFlixHtmlFileName = "LisoFlix - Copia.html";
+        private const string DarkBulletHtmlFileName = "DARK BULLET COM PLAYER INTEGRADO.HTML";
+        private static readonly HashSet<string> LiveCategoryNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Canais",
+            "24 Horas"
+        };
+        private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
+        private const string UpdateManifestPrimaryUrl = "https://wesleiandersonti.github.io/MEU_GESTOR_DE_VODS/update.json";
+        private const string UpdateManifestFallbackUrl = "https://raw.githubusercontent.com/wesleiandersonti/MEU_GESTOR_DE_VODS/main/update.json";
+    }
+}

@@ -45,7 +45,7 @@ namespace MeuGestorVODs
             "24 Horas"
         };
         private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
-        private const string UpdateManifestPrimaryUrl = "https://wesleiandersonti.github.io/MEU_GESTOR_DE_VODS/update.json";
-        private const string UpdateManifestFallbackUrl = "https://raw.githubusercontent.com/wesleiandersonti/MEU_GESTOR_DE_VODS/main/update.json";
+        private const string UpdateManifestPrimaryUrl = "https://raw.githubusercontent.com/wesleiandersonti/MEU_GESTOR_DE_VODS/main/app/update.json";
+        private const string UpdateManifestFallbackUrl = "https://wesleiandersonti.github.io/MEU_GESTOR_DE_VODS/update.json";
     }
 }

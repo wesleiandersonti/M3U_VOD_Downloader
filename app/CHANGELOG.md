@@ -30,6 +30,23 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.45] - 2026-02-16
+
+### 🎉 Adicionado (Features)
+- **Modulo drm-player integrado no app**
+  - Novo item de menu `drm-player` com abertura em aba interna via WebView2.
+  - Inclusao dos players HTML (DASH/HLS/ClearKey/Widevine) em `app/drm-player`.
+
+### 🔄 Melhorado (UX/UI)
+- **Empacotamento de modulos HTML no build**
+  - Pasta `drm-player` agora e copiada automaticamente no build e no publish.
+
+### 🛠️ Técnico (Build/Pipeline)
+- **Metadados de commit para builds**
+  - Ajuste para permitir preenchimento automatico de metadados de commit em execucoes de build.
+
+---
+
 ## [1.0.21] - 2026-02-08
 
 ### 🎉 Adicionado (Features)

@@ -30,6 +30,25 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.57] - 2026-02-17
+
+### 🎉 Adicionado (Features)
+- **YouTube para M3U com API 24/7**
+  - Nova opcao `Gerar via API 24/7` na aba `YouTube para M3U` para montar playlist somente com canais ativos.
+  - Campos de configuracao para `API Base URL` e `X-API-Key` com persistencia local protegida.
+
+### 🔄 Melhorado (Integracao)
+- **Fluxo dinamico de exportacao**
+  - App passa a consumir `POST /export/m3u` e `GET /export/m3u/latest` no servico externo para gerar M3U atualizado.
+  - Fallback para `download_url` quando o conteudo nao vem inline na resposta.
+
+### 🛠️ Técnico (Arquitetura)
+- **Novo modulo `youtube-live-manager`**
+  - Servico Node.js/TypeScript completo com scanner continuo, validacao de stream, historico em MariaDB e API REST.
+  - Exportador M3U dedicado para canais online com suporte a URL proxy `/stream/:id`.
+
+---
+
 ## [1.0.56] - 2026-02-17
 
 ### 🔐 Seguranca (Hardening)

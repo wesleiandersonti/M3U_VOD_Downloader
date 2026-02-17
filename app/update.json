@@ -1,11 +1,11 @@
 {
-  "version": "1.0.52",
-  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.52/MeuGestorVODs-Setup-v1.0.52.exe",
+  "version": "1.0.53",
+  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.53/MeuGestorVODs-Setup-v1.0.53.exe",
   "sha256": "",
   "notes": [
-    "Melhoria: PlaylistFinder agora redimensiona junto com a aba e com a janela principal",
-    "Correcao: Ajuste de layout do executavel embutido ao trocar abas",
-    "Correcao: Janela embutida sem bordas para melhor encaixe no TabControl",
-    "Melhoria: Responsividade do modulo IP E PORTA em maximizar/restaurar"
+    "Correcao: IPTV Checker voltou a classificar ONLINE/OFFLINE em listas com URLs simples",
+    "Correcao: Verificacao agora sanitiza URLs com parametros apos o caractere '|'",
+    "Melhoria: Parser M3U aceita linhas de stream sem #EXTINF",
+    "Melhoria: Health check trata protocolos nao suportados de forma explicita"
   ]
 }

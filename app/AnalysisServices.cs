@@ -65,11 +65,23 @@ public class StreamCheckService : IDisposable
 
     private async Task<StreamCheckItemResult> CheckOneAsync(M3UEntry entry, StreamCheckOptions options, CancellationToken cancellationToken)
     {
-        var normalized = DuplicateDetectionService.NormalizeUrl(entry.Url);
-        var host = TryGetHost(entry.Url);
+        var probeUrl = SanitizeProbeUrl(entry.Url);
+        var normalized = DuplicateDetectionService.NormalizeUrl(probeUrl);
+        var host = TryGetHost(probeUrl);
         var retries = Math.Max(0, options.RetryCount);
         var timeoutSeconds = Math.Max(2, options.TimeoutSeconds);
         var delayMs = Math.Max(0, options.RetryDelayMilliseconds);
+
+        if (string.IsNullOrWhiteSpace(probeUrl))
+        {
+            return BuildResult(entry, normalized, host, false, 0, "URL invalida para verificacao");
+        }
+
+        if (!Uri.TryCreate(probeUrl, UriKind.Absolute, out var probeUri) ||
+            (probeUri.Scheme != Uri.UriSchemeHttp && probeUri.Scheme != Uri.UriSchemeHttps))
+        {
+            return BuildResult(entry, normalized, host, false, 0, "Protocolo nao suportado pelo checker");
+        }
 
         StreamCheckItemResult? lastFailure = null;
 
@@ -83,7 +95,7 @@ public class StreamCheckService : IDisposable
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
                 var requestToken = timeoutCts.Token;
 
-                using var head = new HttpRequestMessage(HttpMethod.Head, entry.Url);
+                using var head = new HttpRequestMessage(HttpMethod.Head, probeUrl);
                 using var headResponse = await _httpClient.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, requestToken);
                 sw.Stop();
 
@@ -92,9 +104,9 @@ public class StreamCheckService : IDisposable
                     return BuildResult(entry, normalized, host, true, sw.Elapsed.TotalMilliseconds, $"HEAD {(int)headResponse.StatusCode}");
                 }
 
-                if (ShouldFallbackToGet(entry.Url, headResponse.StatusCode))
+                if (ShouldFallbackToGet(probeUrl, headResponse.StatusCode))
                 {
-                    var getResult = await TryRangeGetProbeAsync(entry.Url, requestToken);
+                    var getResult = await TryRangeGetProbeAsync(probeUrl, requestToken);
                     if (getResult.Ok)
                     {
                         return BuildResult(entry, normalized, host, true, getResult.LatencyMs, $"GET {(int)getResult.StatusCode}");
@@ -197,6 +209,23 @@ public class StreamCheckService : IDisposable
         }
 
         return "desconhecido";
+    }
+
+    private static string SanitizeProbeUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = url.Trim();
+        var pipeIndex = trimmed.IndexOf('|');
+        if (pipeIndex > 0)
+        {
+            trimmed = trimmed[..pipeIndex].Trim();
+        }
+
+        return trimmed;
     }
 
     public void Dispose()

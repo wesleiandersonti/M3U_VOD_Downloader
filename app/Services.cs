@@ -189,12 +189,40 @@ public static class M3UParser
     {
         var entries = new List<M3UEntry>();
         var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        var fallbackIndex = 1;
 
-        for (int i = 0; i < lines.Length - 1; i++)
+        for (int i = 0; i < lines.Length; i++)
         {
             var line = lines[i].Trim();
 
+            if (string.IsNullOrWhiteSpace(line) ||
+                line.Equals("#EXTM3U", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (!line.StartsWith("#EXTINF:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!line.StartsWith("#", StringComparison.Ordinal) &&
+                    LooksLikeStreamUrl(line))
+                {
+                    entries.Add(new M3UEntry
+                    {
+                        Url = line,
+                        Id = Guid.NewGuid().ToString("N")[..8],
+                        TvgId = string.Empty,
+                        Name = $"Stream {fallbackIndex++}",
+                        GroupTitle = "Sem Categoria | Geral",
+                        Category = "Sem Categoria",
+                        SubCategory = "Geral",
+                        LogoUrl = string.Empty
+                    });
+                }
+
+                continue;
+            }
+
+            if (i + 1 >= lines.Length)
             {
                 continue;
             }
@@ -219,9 +247,26 @@ public static class M3UParser
                 SubCategory = subCategory,
                 LogoUrl = ExtractAttribute(line, "tvg-logo") ?? string.Empty
             });
+
+            i++;
         }
 
         return entries;
+    }
+
+    private static bool LooksLikeStreamUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("rtmp://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("udp://", StringComparison.OrdinalIgnoreCase);
     }
 
     private static (string category, string subCategory, string groupDisplay) ParseGroupTitle(string rawGroupTitle)
@@ -436,9 +481,21 @@ public class LinkHealthService : IDisposable
             return new LinkCheckResult { IsOnline = true, Details = "Arquivo local" };
         }
 
+        var probeUrl = SanitizeProbeUrl(url);
+        if (string.IsNullOrWhiteSpace(probeUrl))
+        {
+            return new LinkCheckResult { IsOnline = false, Details = "URL invalida" };
+        }
+
+        if (!Uri.TryCreate(probeUrl, UriKind.Absolute, out var probeUri) ||
+            (probeUri.Scheme != Uri.UriSchemeHttp && probeUri.Scheme != Uri.UriSchemeHttps))
+        {
+            return new LinkCheckResult { IsOnline = false, Details = "Protocolo nao suportado" };
+        }
+
         try
         {
-            using var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
+            using var headRequest = new HttpRequestMessage(HttpMethod.Head, probeUrl);
             using var headResponse = await _httpClient.SendAsync(headRequest, HttpCompletionOption.ResponseHeadersRead);
             if ((int)headResponse.StatusCode < 400)
             {
@@ -448,7 +505,7 @@ public class LinkHealthService : IDisposable
             if (headResponse.StatusCode == HttpStatusCode.MethodNotAllowed ||
                 headResponse.StatusCode == HttpStatusCode.NotImplemented)
             {
-                using var getRequest = new HttpRequestMessage(HttpMethod.Get, url);
+                using var getRequest = new HttpRequestMessage(HttpMethod.Get, probeUrl);
                 using var getResponse = await _httpClient.SendAsync(getRequest, HttpCompletionOption.ResponseHeadersRead);
                 if ((int)getResponse.StatusCode < 400)
                 {
@@ -464,6 +521,23 @@ public class LinkHealthService : IDisposable
         {
             return new LinkCheckResult { IsOnline = false, Details = ex.Message };
         }
+    }
+
+    private static string SanitizeProbeUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = url.Trim();
+        var pipeIndex = trimmed.IndexOf('|');
+        if (pipeIndex > 0)
+        {
+            trimmed = trimmed[..pipeIndex].Trim();
+        }
+
+        return trimmed;
     }
 
     public void Dispose()

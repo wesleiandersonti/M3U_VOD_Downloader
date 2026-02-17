@@ -30,6 +30,20 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.53] - 2026-02-17
+
+### 🐛 Corrigido (Fix)
+- **IPTV Checker voltou a funcionar corretamente**
+  - A verificacao de links agora sanitiza URLs com parametros apos `|` antes do probe HTTP.
+  - O classificador ONLINE/OFFLINE voltou a responder em listas com formatos comuns de IPTV.
+
+### 🔄 Melhorado (UX/UI)
+- **Compatibilidade de entrada de lista**
+  - Parser M3U agora aceita tambem listas com URLs simples (uma por linha), sem `#EXTINF`.
+  - Protocolos nao suportados passam a retornar detalhe explicito no resultado do checker.
+
+---
+
 ## [1.0.52] - 2026-02-17
 
 ### 🔄 Melhorado (UX/UI)

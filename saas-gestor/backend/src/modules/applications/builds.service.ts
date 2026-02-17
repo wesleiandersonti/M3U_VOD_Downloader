@@ -84,7 +84,7 @@ export class BuildsService {
       buildNumber,
       commitHash: createDto.commitHash,
       commitMessage: createDto.commitMessage,
-      commitAuthor: 'Manual Trigger', // TODO: Get from git
+      commitAuthor: null,
       status: BuildStatus.QUEUED,
       triggeredById: userId,
       triggerType: 'manual',

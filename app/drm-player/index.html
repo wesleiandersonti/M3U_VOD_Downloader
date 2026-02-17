@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>DRM Player</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▶</text></svg>">
+  <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    #videoForm {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 36px 30px 28px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      text-align: center;
+      width: 420px;
+      max-width: 92vw;
+    }
+
+    .form-header { margin-bottom: 22px; }
+    .form-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #e94560, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .form-subtitle {
+      font-size: 0.82rem;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    .badges {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+    .badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge-dash { background: #e94560; }
+    .badge-hls { background: #7c3aed; }
+    .badge-drm { background: transparent; border: 1px solid #60a5fa; color: #60a5fa; }
+
+    .field { text-align: left; margin-bottom: 16px; }
+    .field:last-of-type { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #999;
+      margin-bottom: 6px;
+    }
+    .optional { color: #555; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+    input {
+      width: 100%;
+      padding: 11px 14px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      font-size: 0.88rem;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #a855f7;
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+    }
+    input::placeholder { color: #555; }
+
+    input[type="button"] {
+      background: linear-gradient(135deg, #e94560, #a855f7);
+      color: white;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 13px 20px;
+      border: none;
+      border-radius: 8px;
+      letter-spacing: 0.3px;
+      transition: transform 0.12s, box-shadow 0.2s;
+      margin-top: 4px;
+    }
+    input[type="button"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(233, 69, 96, 0.35);
+    }
+    input[type="button"]:active { transform: translateY(0); }
+
+    .nav-links {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      font-size: 0.72rem;
+      color: #60a5fa;
+      text-decoration: none;
+      padding: 4px 12px;
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+    .nav-links a:hover { background: rgba(96, 165, 250, 0.1); }
+
+    .jwplayer {
+      position: absolute !important
+    }
+
+    .jwplayer.jw-flag-aspect-mode {
+      min-height: 100%;
+      max-height: 100%
+    }
+  </style>
+</head>
+
+<body>
+  <div id="jwplayerDiv"></div>
+  <form id="videoForm">
+    <div class="form-header">
+      <div class="form-title">DRM Player</div>
+      <div class="form-subtitle">Play DASH &amp; HLS streams with optional ClearKey DRM</div>
+    </div>
+
+    <div class="badges">
+      <span class="badge badge-dash">DASH</span>
+      <span class="badge badge-hls">HLS</span>
+      <span class="badge badge-drm">ClearKey</span>
+    </div>
+
+    <div class="field">
+      <label for="manifest">Stream URL</label>
+      <input type="text" id="manifest" name="manifest" placeholder="https://example.com/stream.mpd or .m3u8" required>
+    </div>
+
+    <div class="field">
+      <label for="keyId">Key ID <span class="optional">(optional)</span></label>
+      <input type="text" id="keyId" name="keyId" placeholder="hex key id — leave empty for non-DRM">
+    </div>
+
+    <div class="field">
+      <label for="key">Key <span class="optional">(optional)</span></label>
+      <input type="text" id="key" name="key" placeholder="hex key — leave empty for non-DRM">
+    </div>
+
+    <input type="button" value="&#9654;  Play Video" onclick="playVideo()">
+
+    <div class="nav-links">
+      <a href="mpdLI.html">Widevine Player</a>
+      <a href="claper.html">Clappr Player</a>
+      <a href="EMB.html">Quick Embed</a>
+    </div>
+  </form>
+
+  <script type="text/javascript">
+    // Check if JWPlayer is loaded
+    function waitForJWPlayer(callback) {
+      if (typeof jwplayer === 'function') {
+        callback();
+      } else {
+        setTimeout(function () {
+          waitForJWPlayer(callback);
+        }, 100);
+      }
+    }
+
+    function playVideo() {
+      var videoForm = document.getElementById("videoForm");
+      videoForm.style.display = "none";
+
+      var jwplayerDiv = document.getElementById("jwplayerDiv");
+      jwplayerDiv.classList.add("jwplayer-fullscreen");
+
+      waitForJWPlayer(function () {
+        setupVideoPlayer();
+      });
+    }
+
+    function setupVideoPlayer() {
+      var manifestInput = document.getElementById("manifest");
+      var keyIdInput = document.getElementById("keyId");
+      var keyInput = document.getElementById("key");
+
+      var manifest = manifestInput.value;
+      var keyId = keyIdInput.value;
+      var key = keyInput.value;
+
+      var playerConfig = {
+        file: manifest,
+        autostart: true,
+        stretching: "",
+        width: "100%",
+        type: "dash",
+      };
+
+      if (keyId && key) {
+        playerConfig.drm = {
+          clearkey: {
+            keyId: keyId,
+            key: key,
+          },
+        };
+      }
+
+      jwplayer("jwplayerDiv").setup(playerConfig);
+    }
+
+    // Function to get URL parameters
+    function getParameterByName(name, url) {
+      if (!url) url = window.location.href;
+      name = name.replace(/[\[\]]/g, "\\$&");
+      var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+
+    // Get parameters from the URL
+    var fileUrl = getParameterByName('emmbed-url');
+    var kid = getParameterByName('kid');
+    var key = getParameterByName('key');
+
+    // Determine stream type
+    var isMpd = fileUrl && fileUrl.endsWith('.mpd');
+    var isM3U8 = fileUrl && fileUrl.endsWith('.m3u8');
+
+    if (fileUrl) {
+      // Hide form and play from URL params
+      document.getElementById("videoForm").style.display = "none";
+
+      var playerSetup = {
+        file: fileUrl,
+        position: 'bottom',
+        autostart: true,
+        stretching: "",
+        width: "100%"
+      };
+
+      if (isMpd) {
+        playerSetup.type = 'dash';
+        playerSetup.drm = {
+          clearkey: {
+            keyId: kid,
+            key: key
+          }
+        };
+      } else if (isM3U8) {
+        playerSetup.type = 'hls';
+        if (kid && key) {
+          playerSetup.drm = {
+            clearkey: {
+              keyId: kid,
+              key: key
+            }
+          };
+        }
+      } else {
+        playerSetup.type = 'hls';
+      }
+
+      jwplayer("jwplayerDiv").setup(playerSetup);
+    }
+  </script>
+</body>
+
+</html>

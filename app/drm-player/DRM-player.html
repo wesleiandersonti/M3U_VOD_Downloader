@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>DRM Player — Standalone</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Standalone DRM DASH/HLS player with ClearKey support">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▶</text></svg>">
+  <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(160deg, #0d1117 0%, #161b22 100%);
+      color: #c9d1d9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #jwplayerDiv { display: none; }
+    .jwplayer { position: absolute !important; }
+    .jwplayer.jw-flag-aspect-mode { min-height: 100%; max-height: 100%; }
+
+    /* ── Card ── */
+    .card {
+      background: #21262d;
+      border: 1px solid #30363d;
+      padding: 32px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .card.hide {
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+
+    .card h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #f0f6fc;
+    }
+    .card p.desc {
+      font-size: 0.82rem;
+      color: #8b949e;
+      margin-bottom: 20px;
+    }
+
+    .tags { display: flex; gap: 6px; margin-bottom: 22px; }
+    .tag {
+      font-size: 0.68rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .tag-dash { background: #da3633; color: #fff; }
+    .tag-hls  { background: #8957e5; color: #fff; }
+    .tag-drm  { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb; }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #8b949e;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 0.88rem;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.15);
+    }
+    input[type="text"]::placeholder { color: #484f58; }
+
+    .hint {
+      font-size: 0.72rem;
+      color: #484f58;
+      margin-top: -10px;
+      margin-bottom: 14px;
+    }
+
+    .separator {
+      border: none;
+      border-top: 1px solid #30363d;
+      margin: 18px 0;
+    }
+
+    .btn-play {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #238636;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    .btn-play:hover { background: #2ea043; }
+    .btn-play:active { background: #238636; }
+
+    #error {
+      display: none;
+      margin-top: 12px;
+      padding: 10px;
+      background: #da363315;
+      border: 1px solid #da363366;
+      border-radius: 6px;
+      color: #f85149;
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.8rem;
+      color: #58a6ff;
+      text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+
+<body>
+  <div id="jwplayerDiv"></div>
+
+  <div class="card" id="card">
+    <h1>Standalone DRM Player</h1>
+    <p class="desc">Enter your manifest URL and optional ClearKey credentials below.</p>
+
+    <div class="tags">
+      <span class="tag tag-dash">DASH</span>
+      <span class="tag tag-hls">HLS</span>
+      <span class="tag tag-drm">ClearKey</span>
+    </div>
+
+    <form id="frm" onsubmit="return false;">
+      <label for="manifest">Stream URL <span style="color:#f85149">*</span></label>
+      <input type="text" id="manifest" placeholder="https://example.com/stream.mpd" required autofocus>
+
+      <hr class="separator">
+
+      <label for="keyId">Key ID</label>
+      <input type="text" id="keyId" placeholder="hex key id (optional)">
+      <div class="hint">Leave blank for non-DRM streams</div>
+
+      <label for="key">Key</label>
+      <input type="text" id="key" placeholder="hex key (optional)">
+      <div class="hint">Leave blank for non-DRM streams</div>
+
+      <button type="button" class="btn-play" onclick="playVideo()">&#9654; Play Video</button>
+
+      <div id="error"></div>
+    </form>
+
+    <a class="back-link" href="index.html">&larr; Back to main player</a>
+  </div>
+
+  <script>
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+
+    function showError(msg) {
+      const el = $('error');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => (el.style.display = 'none'), 5000);
+    }
+
+    function waitForJWPlayer(timeout = 10000) {
+      return new Promise((resolve, reject) => {
+        const t0 = Date.now();
+        (function poll() {
+          if (typeof jwplayer === 'function') return resolve();
+          if (Date.now() - t0 > timeout) return reject(new Error('timeout'));
+          setTimeout(poll, 100);
+        })();
+      });
+    }
+
+    function buildConfig(url, keyId, key) {
+      const isMpd = url.toLowerCase().endsWith('.mpd');
+      const cfg = {
+        file: url,
+        autostart: true,
+        width: '100%',
+        aspectratio: '16:9',
+        stretching: 'uniform',
+        type: isMpd ? 'dash' : 'hls',
+      };
+      if (keyId && key) {
+        cfg.drm = { clearkey: { keyId, key } };
+      }
+      return cfg;
+    }
+
+    async function playVideo() {
+      const manifest = $('manifest').value.trim();
+      const keyId    = $('keyId').value.trim();
+      const key      = $('key').value.trim();
+
+      if (!manifest) return showError('A stream URL is required.');
+      if ((keyId && !key) || (!keyId && key)) {
+        return showError('Provide both Key ID and Key, or leave both empty.');
+      }
+
+      try { await waitForJWPlayer(); }
+      catch { return showError('JWPlayer library failed to load.'); }
+
+      const card = $('card');
+      card.classList.add('hide');
+      setTimeout(() => (card.style.display = 'none'), 350);
+      $('jwplayerDiv').style.display = 'block';
+
+      jwplayer('jwplayerDiv').setup(buildConfig(manifest, keyId, key));
+    }
+
+    /* ── Auto-play from URL params ── */
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const file = params.get('emmbed-url') || params.get('embed-url');
+      if (!file) return;
+
+      try { await waitForJWPlayer(); }
+      catch { return showError('JWPlayer failed to load.'); }
+
+      $('card').style.display = 'none';
+      $('jwplayerDiv').style.display = 'block';
+      jwplayer('jwplayerDiv').setup(
+        buildConfig(file, params.get('kid') || '', params.get('key') || '')
+      );
+    })();
+  </script>
+</body>
+
+</html>

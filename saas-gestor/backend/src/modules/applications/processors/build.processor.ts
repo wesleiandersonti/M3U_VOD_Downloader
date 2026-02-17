@@ -24,6 +24,13 @@ interface BuildJobData {
   buildCommand: string;
 }
 
+interface CommitMetadata {
+  hash: string;
+  message: string;
+  authorName: string;
+  authorEmail: string;
+}
+
 @Processor('builds', {
   concurrency: 2, // Run 2 builds simultaneously
 })
@@ -83,6 +90,12 @@ export class BuildProcessor extends WorkerHost {
 
       await simpleGit().clone(repositoryUrl, buildDir, ['--branch', repositoryBranch, '--single-branch', '--depth', '1']);
       addLog('Repository cloned successfully');
+
+      const commitMetadata = await this.getLatestCommitMetadata(buildDir);
+      if (commitMetadata) {
+        await this.updateBuildGitMetadata(buildId, commitMetadata);
+        addLog(`Resolved commit metadata from git: ${commitMetadata.hash}`);
+      }
 
       // Install dependencies
       await this.updateBuildStatus(buildId, BuildStatus.RUNNING, 'installing', 30);
@@ -217,6 +230,43 @@ export class BuildProcessor extends WorkerHost {
     }
     
     await this.applicationRepository.update(applicationId, updateData);
+  }
+
+  private async getLatestCommitMetadata(buildDir: string): Promise<CommitMetadata | null> {
+    try {
+      const git = simpleGit(buildDir);
+      const log = await git.log({ maxCount: 1 });
+      const latest = log.latest;
+
+      if (!latest) {
+        return null;
+      }
+
+      return {
+        hash: latest.hash,
+        message: latest.message,
+        authorName: latest.author_name,
+        authorEmail: latest.author_email,
+      };
+    } catch (error) {
+      this.logger.warn(`Could not resolve git metadata: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async updateBuildGitMetadata(buildId: number, metadata: CommitMetadata): Promise<void> {
+    const build = await this.buildRepository.findOne({ where: { id: buildId } });
+    if (!build) {
+      return;
+    }
+
+    const author = `${metadata.authorName} <${metadata.authorEmail}>`.slice(0, 255);
+
+    await this.buildRepository.update(buildId, {
+      commitHash: build.commitHash || metadata.hash,
+      commitMessage: build.commitMessage || metadata.message,
+      commitAuthor: build.commitAuthor || author,
+    });
   }
 
   @OnWorkerEvent('completed')

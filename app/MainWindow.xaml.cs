@@ -1403,6 +1403,22 @@ namespace MeuGestorVODs
             OpenModuleInTab("LisoFlix", filePath);
         }
 
+        private void MainMenuDrmPlayer_Click(object sender, RoutedEventArgs e)
+        {
+            if (TryOpenIntegratedHtml("drm-player", DrmPlayerHtmlFileName))
+            {
+                return;
+            }
+
+            System.Windows.MessageBox.Show(
+                "Arquivo HTML do modulo drm-player nao encontrado:\n- " + DrmPlayerHtmlFileName,
+                "drm-player",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            StatusMessage = "Modulo drm-player sem HTML integrado no momento.";
+        }
+
         private void CastToDevice_Click(object sender, RoutedEventArgs e)
         {
             // Verifica se há itens selecionados

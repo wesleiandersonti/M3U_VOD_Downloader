@@ -22,6 +22,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
+SetupIconFile=..\assets\icons\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 InfoBeforeFile=..\output\release-notes.txt
 

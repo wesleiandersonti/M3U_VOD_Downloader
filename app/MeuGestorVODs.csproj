@@ -12,6 +12,7 @@
     <AssemblyVersion>1.0.45</AssemblyVersion>
     <Authors>MEU GESTOR DE VODS</Authors>
     <Description>Gerenciador de VODs para IPTV M3U</Description>
+    <ApplicationIcon>assets\icons\app_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

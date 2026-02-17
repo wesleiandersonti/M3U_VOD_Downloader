@@ -17,17 +17,7 @@ namespace MeuGestorVODs
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        private string _m3uUrl = "";
-        private string _downloadPath = "";
-        private string _filterText = "";
-        private string _statusMessage = "Pronto";
-        private string _currentVersionText = "Versao atual: -";
-        private string _itemCountText = "Itens: 0";
-        private string _groupCountText = "Grupos: 0";
-        private string _groupFilterInfoText = "";
-        private Visibility _groupPanelVisibility = Visibility.Collapsed;
-        private bool _isLoading = false;
-        private M3UEntry _selectedEntry = new M3UEntry();
+        private readonly MainViewModel _vm = new MainViewModel();
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
         private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
         private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
@@ -38,80 +28,79 @@ namespace MeuGestorVODs
         private string? _selectedCategoryFilter;
         private string? _selectedGroupKeyFilter;
 
-        public ObservableCollection<M3UEntry> Entries { get; set; } = new ObservableCollection<M3UEntry>();
-        public ObservableCollection<M3UEntry> FilteredEntries { get; set; } = new ObservableCollection<M3UEntry>();
-        public ObservableCollection<DownloadItem> Downloads { get; set; } = new ObservableCollection<DownloadItem>();
-        public ObservableCollection<GroupCategoryItem> GroupCategories { get; set; } = new ObservableCollection<GroupCategoryItem>();
+        public ObservableCollection<M3UEntry> Entries => _vm.Entries;
+        public ObservableCollection<M3UEntry> FilteredEntries => _vm.FilteredEntries;
+        public ObservableCollection<DownloadItem> Downloads => _vm.Downloads;
+        public ObservableCollection<GroupCategoryItem> GroupCategories => _vm.GroupCategories;
 
         public string M3UUrl
         {
-            get => _m3uUrl;
-            set { _m3uUrl = value; OnPropertyChanged(nameof(M3UUrl)); }
+            get => _vm.M3UUrl;
+            set => _vm.M3UUrl = value;
         }
 
         public string DownloadPath
         {
-            get => _downloadPath;
-            set { _downloadPath = value; OnPropertyChanged(nameof(DownloadPath)); }
+            get => _vm.DownloadPath;
+            set => _vm.DownloadPath = value;
         }
 
         public string FilterText
         {
-            get => _filterText;
+            get => _vm.FilterText;
             set
             {
-                _filterText = value;
-                OnPropertyChanged(nameof(FilterText));
+                _vm.FilterText = value;
                 ApplyFilter();
             }
         }
 
         public string StatusMessage
         {
-            get => _statusMessage;
-            set { _statusMessage = value; OnPropertyChanged(nameof(StatusMessage)); }
+            get => _vm.StatusMessage;
+            set => _vm.StatusMessage = value;
         }
 
         public string CurrentVersionText
         {
-            get => _currentVersionText;
-            set { _currentVersionText = value; OnPropertyChanged(nameof(CurrentVersionText)); }
+            get => _vm.CurrentVersionText;
+            set => _vm.CurrentVersionText = value;
         }
 
         public string ItemCountText
         {
-            get => _itemCountText;
-            set { _itemCountText = value; OnPropertyChanged(nameof(ItemCountText)); }
+            get => _vm.ItemCountText;
+            set => _vm.ItemCountText = value;
         }
 
         public string GroupCountText
         {
-            get => _groupCountText;
-            set { _groupCountText = value; OnPropertyChanged(nameof(GroupCountText)); }
+            get => _vm.GroupCountText;
+            set => _vm.GroupCountText = value;
         }
 
         public string GroupFilterInfoText
         {
-            get => _groupFilterInfoText;
-            set { _groupFilterInfoText = value; OnPropertyChanged(nameof(GroupFilterInfoText)); }
+            get => _vm.GroupFilterInfoText;
+            set => _vm.GroupFilterInfoText = value;
         }
 
         public Visibility GroupPanelVisibility
         {
-            get => _groupPanelVisibility;
-            set { _groupPanelVisibility = value; OnPropertyChanged(nameof(GroupPanelVisibility)); }
+            get => _vm.GroupPanelVisibility;
+            set => _vm.GroupPanelVisibility = value;
         }
 
         public bool IsLoading
         {
-            get => _isLoading;
-            set { _isLoading = value; OnPropertyChanged(nameof(IsLoading)); }
+            get => _vm.IsLoading;
+            set => _vm.IsLoading = value;
         }
 
         public M3UEntry SelectedEntry
         {
-            get => _selectedEntry;
-            set { _selectedEntry = value; OnPropertyChanged(nameof(SelectedEntry)); }
+            get => _vm.SelectedEntry;
+            set => _vm.SelectedEntry = value;
         }
 
         private M3UService _m3uService;
@@ -122,11 +111,18 @@ namespace MeuGestorVODs
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = this;
+            DataContext = _vm;
             _m3uService = new M3UService();
             _downloadService = new DownloadService();
             _storageService = new StorageService();
             _updateService = new UpdateService();
+            _vm.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(MainViewModel.FilterText))
+                {
+                    ApplyFilter();
+                }
+            };
             DownloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Meu Gestor VODs");
             EnsureAndLoadDownloadStructure();
             EnsureLinkDatabaseFiles();

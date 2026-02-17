@@ -14,6 +14,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
@@ -32,6 +33,7 @@ namespace MeuGestorVODs
     {
         private readonly MainViewModel _vm;
         private readonly HttpClient _releaseClient = new HttpClient();
+        private readonly Dictionary<TabItem, Process> _embeddedTabProcesses = new();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private bool _isUpdateInProgress;
         private readonly List<M3UEntry> _allEntries = new List<M3UEntry>();
@@ -112,6 +114,26 @@ namespace MeuGestorVODs
         private ManualResetEventSlim _downloadPauseGate = new(initialState: true);
         private bool _isDownloadRunning;
         private bool _isDownloadPaused;
+
+        private const int GwlStyle = -16;
+        private const int WsChild = 0x40000000;
+        private const int WsVisible = 0x10000000;
+        private const int SwShow = 5;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetParent(IntPtr childWindowHandle, IntPtr newParentHandle);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int GetWindowLong(IntPtr windowHandle, int index);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int SetWindowLong(IntPtr windowHandle, int index, int newLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool MoveWindow(IntPtr windowHandle, int x, int y, int width, int height, bool repaint);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ShowWindow(IntPtr windowHandle, int command);
 
         public MainWindow()
         {
@@ -941,6 +963,7 @@ namespace MeuGestorVODs
                 var tabItem = FindParent<TabItem>(btn);
                 if (tabItem != null && ChromeTabControl.Items.Count > 1)
                 {
+                    CleanupEmbeddedProcessForTab(tabItem);
                     ChromeTabControl.Items.Remove(tabItem);
                     StatusMessage = "Aba fechada.";
                 }
@@ -1157,9 +1180,22 @@ namespace MeuGestorVODs
             MainMenuIpPortPlaylistFinderInApp_Click(sender, e);
         }
 
-        private void MainMenuIpPortPlaylistFinderInApp_Click(object sender, RoutedEventArgs e)
+        private async void MainMenuIpPortPlaylistFinderInApp_Click(object sender, RoutedEventArgs e)
         {
-            MainMenuIpPortPlaylistFinder_Click(sender, e);
+            var executablePath = ResolvePlaylistFinderExecutablePath();
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+            {
+                var rootPath = ResolveIpPortRootDirectory() ?? "(nao localizado)";
+                System.Windows.MessageBox.Show(
+                    "playlistfinder.app.exe nao foi encontrado no pacote integrado do aplicativo.\n\nBase procurada:\n" + rootPath,
+                    "IP E PORTA",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            await OpenEmbeddedExecutableTabAsync("playlistfinder.app", executablePath);
+            StatusMessage = "playlistfinder.app aberto dentro do sistema.";
         }
 
         private void MainMenuIpPortPlaylistFinder_Click(object sender, RoutedEventArgs e)
@@ -2053,6 +2089,170 @@ namespace MeuGestorVODs
             StatusMessage = $"Módulo {moduleName} aberto em nova aba.";
         }
 
+        private async Task OpenEmbeddedExecutableTabAsync(string moduleName, string executablePath)
+        {
+            var existing = ChromeTabControl.Items
+                .OfType<TabItem>()
+                .FirstOrDefault(t => string.Equals(t.Header?.ToString(), moduleName, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                if (_embeddedTabProcesses.TryGetValue(existing, out var runningProcess) && !runningProcess.HasExited)
+                {
+                    ChromeTabControl.SelectedItem = existing;
+                    return;
+                }
+
+                CleanupEmbeddedProcessForTab(existing);
+                ChromeTabControl.Items.Remove(existing);
+            }
+
+            var tab = new TabItem
+            {
+                Header = moduleName,
+                Tag = executablePath
+            };
+
+            var grid = new Grid();
+            var host = new System.Windows.Forms.Integration.WindowsFormsHost();
+            var panel = new System.Windows.Forms.Panel
+            {
+                Dock = System.Windows.Forms.DockStyle.Fill
+            };
+
+            host.Child = panel;
+            grid.Children.Add(host);
+            tab.Content = grid;
+
+            ChromeTabControl.Items.Add(tab);
+            ChromeTabControl.SelectedItem = tab;
+
+            var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = executablePath,
+                WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+                UseShellExecute = true
+            });
+
+            if (process == null)
+            {
+                ChromeTabControl.Items.Remove(tab);
+                System.Windows.MessageBox.Show(
+                    "Nao foi possivel iniciar o playlistfinder.app.",
+                    "IP E PORTA",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
+
+            _embeddedTabProcesses[tab] = process;
+
+            var attached = await WaitAndAttachWindowAsync(process, panel);
+            if (!attached)
+            {
+                CleanupEmbeddedProcessForTab(tab);
+                ChromeTabControl.Items.Remove(tab);
+                System.Windows.MessageBox.Show(
+                    "Nao foi possivel anexar a janela do playlistfinder.app dentro da aba.",
+                    "IP E PORTA",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            panel.Resize += (_, _) => ResizeEmbeddedWindow(process, panel);
+        }
+
+        private async Task<bool> WaitAndAttachWindowAsync(Process process, System.Windows.Forms.Panel hostPanel)
+        {
+            try
+            {
+                for (var i = 0; i < 100; i++)
+                {
+                    await Task.Delay(120);
+
+                    if (process.HasExited)
+                    {
+                        return false;
+                    }
+
+                    process.Refresh();
+                    var windowHandle = process.MainWindowHandle;
+                    if (windowHandle == IntPtr.Zero || !hostPanel.IsHandleCreated)
+                    {
+                        continue;
+                    }
+
+                    SetParent(windowHandle, hostPanel.Handle);
+
+                    var style = GetWindowLong(windowHandle, GwlStyle);
+                    SetWindowLong(windowHandle, GwlStyle, style | WsChild | WsVisible);
+
+                    ResizeEmbeddedWindow(process, hostPanel);
+                    ShowWindow(windowHandle, SwShow);
+                    return true;
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+
+        private static void ResizeEmbeddedWindow(Process process, System.Windows.Forms.Panel hostPanel)
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            process.Refresh();
+            var windowHandle = process.MainWindowHandle;
+            if (windowHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            var width = Math.Max(hostPanel.ClientSize.Width, 200);
+            var height = Math.Max(hostPanel.ClientSize.Height, 120);
+            MoveWindow(windowHandle, 0, 0, width, height, true);
+        }
+
+        private void CleanupEmbeddedProcessForTab(TabItem tab)
+        {
+            if (!_embeddedTabProcesses.TryGetValue(tab, out var process))
+            {
+                return;
+            }
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.CloseMainWindow();
+                    if (!process.WaitForExit(1500))
+                    {
+                        process.Kill(true);
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            process.Dispose();
+            _embeddedTabProcesses.Remove(tab);
+        }
+
+        private void CleanupAllEmbeddedProcesses()
+        {
+            foreach (var tab in _embeddedTabProcesses.Keys.ToList())
+            {
+                CleanupEmbeddedProcessForTab(tab);
+            }
+        }
+
         private void InitializeWebView(WebView2 webView, string htmlPath)
         {
             try
@@ -2278,6 +2478,8 @@ namespace MeuGestorVODs
 
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
+            CleanupAllEmbeddedProcesses();
+
             _linkCheckTimer.Stop();
             _linkCheckTimer.Tick -= LinkCheckTimer_Tick;
 

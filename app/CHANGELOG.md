@@ -30,6 +30,19 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.51] - 2026-02-17
+
+### 🐛 Corrigido (Fix)
+- **PlaylistFinder em aba interna**
+  - O menu `IP E PORTA` agora abre o `playlistfinder.app` dentro do sistema, em uma aba dedicada.
+  - Fechar a aba passa a encerrar o processo embutido com limpeza segura.
+
+### 🔄 Melhorado (UX/UI)
+- **Fluxo integrado no app**
+  - O usuario nao precisa mais sair para janela externa ao abrir o modulo principal do PlaylistFinder.
+
+---
+
 ## [1.0.50] - 2026-02-17
 
 ### 🎉 Adicionado (Features)

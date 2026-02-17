@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Linq;
@@ -459,4 +461,133 @@ public class StorageService
 
         return folderName.Trim();
     }
+}
+
+public class UpdateService
+{
+    private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
+    private readonly HttpClient _releaseClient;
+
+    public UpdateService()
+    {
+        _releaseClient = new HttpClient();
+        _releaseClient.DefaultRequestHeaders.Add("User-Agent", "MeuGestorVODs");
+    }
+
+    public async Task<GitHubRelease?> GetLatestReleaseAsync()
+    {
+        using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases/latest");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<GitHubRelease>(json);
+    }
+
+    public async Task<List<GitHubRelease>> GetStableReleasesAsync()
+    {
+        using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases?per_page=30");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var all = JsonSerializer.Deserialize<List<GitHubRelease>>(json) ?? new List<GitHubRelease>();
+        return all.Where(r => !r.Draft && !r.Prerelease).ToList();
+    }
+
+    public bool IsNewerRelease(string releaseTag, string currentVersion)
+    {
+        var releaseVersion = ParseVersion(NormalizeTag(releaseTag));
+        var installedVersion = ParseVersion(NormalizeTag(currentVersion));
+
+        if (releaseVersion != null && installedVersion != null)
+        {
+            return releaseVersion > installedVersion;
+        }
+
+        return !string.Equals(NormalizeTag(releaseTag), NormalizeTag(currentVersion), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public int CompareReleaseTags(string leftTag, string rightTag)
+    {
+        var left = ParseVersion(NormalizeTag(leftTag));
+        var right = ParseVersion(NormalizeTag(rightTag));
+
+        if (left != null && right != null)
+        {
+            return left.CompareTo(right);
+        }
+
+        return string.Compare(NormalizeTag(leftTag), NormalizeTag(rightTag), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public string NormalizeTag(string tag)
+    {
+        return tag.Trim().TrimStart('v', 'V');
+    }
+
+    public async Task DownloadFileWithProgressAsync(string url, string outputPath, Action<int>? onProgress)
+    {
+        using var response = await _releaseClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+        await using var input = await response.Content.ReadAsStreamAsync();
+        await using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+
+        var buffer = new byte[81920];
+        long readTotal = 0;
+        while (true)
+        {
+            var read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length));
+            if (read == 0)
+            {
+                break;
+            }
+
+            await output.WriteAsync(buffer.AsMemory(0, read));
+            readTotal += read;
+
+            if (totalBytes > 0)
+            {
+                var pct = (int)Math.Round((double)readTotal / totalBytes * 100);
+                onProgress?.Invoke(pct);
+            }
+        }
+    }
+
+    private static Version? ParseVersion(string value)
+    {
+        var cleaned = value.Trim();
+        var idx = cleaned.IndexOf('-', StringComparison.Ordinal);
+        if (idx > 0)
+        {
+            cleaned = cleaned[..idx];
+        }
+
+        return Version.TryParse(cleaned, out var parsed) ? parsed : null;
+    }
+}
+
+public sealed class GitHubRelease
+{
+    [JsonPropertyName("tag_name")]
+    public string TagName { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("draft")]
+    public bool Draft { get; set; }
+
+    [JsonPropertyName("prerelease")]
+    public bool Prerelease { get; set; }
+
+    [JsonPropertyName("assets")]
+    public List<GitHubAsset> Assets { get; set; } = new List<GitHubAsset>();
+}
+
+public sealed class GitHubAsset
+{
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("browser_download_url")]
+    public string BrowserDownloadUrl { get; set; } = string.Empty;
 }

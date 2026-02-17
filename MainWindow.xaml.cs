@@ -5,10 +5,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -33,9 +31,8 @@ namespace MeuGestorVODs
         private const string DownloadStructureFileName = "estrutura_downloads.txt";
         private const string VodLinksDatabaseFileName = "banco_vod_links.txt";
         private const string LiveLinksDatabaseFileName = "banco_canais_ao_vivo.txt";
-        private const string RepoApiBase = "https://api.github.com/repos/wesleiandersonti/MEU_GESTOR_DE_VODS";
-        private readonly HttpClient _releaseClient = new HttpClient();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private readonly SemaphoreSlim _downloadSemaphore = new SemaphoreSlim(3);
         private bool _isUpdateInProgress;
         private readonly List<M3UEntry> _allEntries = new List<M3UEntry>();
         private string? _selectedCategoryFilter;
@@ -120,6 +117,7 @@ namespace MeuGestorVODs
         private M3UService _m3uService;
         private DownloadService _downloadService;
         private StorageService _storageService;
+        private UpdateService _updateService;
 
         public MainWindow()
         {
@@ -128,10 +126,10 @@ namespace MeuGestorVODs
             _m3uService = new M3UService();
             _downloadService = new DownloadService();
             _storageService = new StorageService();
+            _updateService = new UpdateService();
             DownloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Meu Gestor VODs");
             EnsureAndLoadDownloadStructure();
             EnsureLinkDatabaseFiles();
-            _releaseClient.DefaultRequestHeaders.Add("User-Agent", "MeuGestorVODs");
             CurrentVersionText = $"Versao atual: {GetCurrentAppVersion()}";
             ItemCountText = "Itens: 0";
             GroupCountText = "Grupos: 0";
@@ -607,6 +605,7 @@ namespace MeuGestorVODs
 
                 _ = Task.Run(async () =>
                 {
+                    await _downloadSemaphore.WaitAsync();
                     try
                     {
                         var progress = new Progress<double>(p =>
@@ -615,7 +614,7 @@ namespace MeuGestorVODs
                         });
 
                         await _downloadService.DownloadFileAsync(entry.Url, outputPath, progress);
-                        
+
                         Dispatcher.Invoke(() =>
                         {
                             downloadItem.Progress = 100;
@@ -628,6 +627,10 @@ namespace MeuGestorVODs
                         {
                             downloadItem.Status = $"Erro: {ex.Message}";
                         });
+                    }
+                    finally
+                    {
+                        _downloadSemaphore.Release();
                     }
                 });
             }
@@ -696,7 +699,7 @@ namespace MeuGestorVODs
                 CurrentVersionText = $"Versao atual: {currentVersion}";
                 StatusMessage = "Verificando atualizacoes...";
 
-                var latest = await GetLatestReleaseAsync();
+                var latest = await _updateService.GetLatestReleaseAsync();
                 if (latest == null)
                 {
                     System.Windows.MessageBox.Show("Nao foi possivel obter informacoes da ultima versao.", "Atualizacao", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -704,7 +707,7 @@ namespace MeuGestorVODs
                     return;
                 }
 
-                if (!IsNewerRelease(latest.TagName, currentVersion))
+                if (!_updateService.IsNewerRelease(latest.TagName, currentVersion))
                 {
                     System.Windows.MessageBox.Show($"Voce ja esta na versao mais recente ({currentVersion}).", "Atualizacao", MessageBoxButton.OK, MessageBoxImage.Information);
                     StatusMessage = "Aplicativo ja esta atualizado";
@@ -750,7 +753,7 @@ namespace MeuGestorVODs
                 IsLoading = true;
                 StatusMessage = "Buscando versoes anteriores...";
 
-                var releases = await GetStableReleasesAsync();
+                var releases = await _updateService.GetStableReleasesAsync();
                 if (releases.Count == 0)
                 {
                     System.Windows.MessageBox.Show("Nenhuma release encontrada.", "Rollback", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -758,7 +761,7 @@ namespace MeuGestorVODs
                 }
 
                 var currentVersion = GetCurrentAppVersion();
-                var older = releases.Where(r => CompareReleaseTags(r.TagName, currentVersion) < 0).ToList();
+                var older = releases.Where(r => _updateService.CompareReleaseTags(r.TagName, currentVersion) < 0).ToList();
                 if (older.Count == 0)
                 {
                     older = releases.Skip(1).ToList();
@@ -784,7 +787,7 @@ namespace MeuGestorVODs
                 }
 
                 var selected = older.FirstOrDefault(r =>
-                    string.Equals(NormalizeTag(r.TagName), NormalizeTag(chosenTag), StringComparison.OrdinalIgnoreCase));
+                    string.Equals(_updateService.NormalizeTag(r.TagName), _updateService.NormalizeTag(chosenTag), StringComparison.OrdinalIgnoreCase));
 
                 if (selected == null)
                 {
@@ -834,7 +837,7 @@ namespace MeuGestorVODs
             Directory.CreateDirectory(Path.GetDirectoryName(downloadPath)!);
 
             StatusMessage = $"{operation}: baixando {release.TagName}...";
-            await DownloadFileWithProgressAsync(installer.BrowserDownloadUrl, downloadPath);
+            await _updateService.DownloadFileWithProgressAsync(installer.BrowserDownloadUrl, downloadPath, pct => StatusMessage = $"Baixando atualizacao... {pct}%");
 
             StatusMessage = $"{operation}: abrindo instalador...";
             Process.Start(new ProcessStartInfo
@@ -850,96 +853,6 @@ namespace MeuGestorVODs
                 MessageBoxImage.Information);
 
             System.Windows.Application.Current.Shutdown();
-        }
-
-        private async Task DownloadFileWithProgressAsync(string url, string outputPath)
-        {
-            using var response = await _releaseClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            response.EnsureSuccessStatusCode();
-
-            var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-            await using var input = await response.Content.ReadAsStreamAsync();
-            await using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
-
-            var buffer = new byte[81920];
-            long readTotal = 0;
-            while (true)
-            {
-                var read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length));
-                if (read == 0)
-                {
-                    break;
-                }
-
-                await output.WriteAsync(buffer.AsMemory(0, read));
-                readTotal += read;
-
-                if (totalBytes > 0)
-                {
-                    var pct = (int)Math.Round((double)readTotal / totalBytes * 100);
-                    StatusMessage = $"Baixando atualizacao... {pct}%";
-                }
-            }
-        }
-
-        private async Task<GitHubRelease?> GetLatestReleaseAsync()
-        {
-            using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases/latest");
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<GitHubRelease>(json);
-        }
-
-        private async Task<List<GitHubRelease>> GetStableReleasesAsync()
-        {
-            using var response = await _releaseClient.GetAsync($"{RepoApiBase}/releases?per_page=30");
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
-            var all = JsonSerializer.Deserialize<List<GitHubRelease>>(json) ?? new List<GitHubRelease>();
-            return all.Where(r => !r.Draft && !r.Prerelease).ToList();
-        }
-
-        private static bool IsNewerRelease(string releaseTag, string currentVersion)
-        {
-            var releaseVersion = ParseVersion(NormalizeTag(releaseTag));
-            var installedVersion = ParseVersion(NormalizeTag(currentVersion));
-
-            if (releaseVersion != null && installedVersion != null)
-            {
-                return releaseVersion > installedVersion;
-            }
-
-            return !string.Equals(NormalizeTag(releaseTag), NormalizeTag(currentVersion), StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static int CompareReleaseTags(string leftTag, string rightTag)
-        {
-            var left = ParseVersion(NormalizeTag(leftTag));
-            var right = ParseVersion(NormalizeTag(rightTag));
-
-            if (left != null && right != null)
-            {
-                return left.CompareTo(right);
-            }
-
-            return string.Compare(NormalizeTag(leftTag), NormalizeTag(rightTag), StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static Version? ParseVersion(string value)
-        {
-            var cleaned = value.Trim();
-            var idx = cleaned.IndexOf('-', StringComparison.Ordinal);
-            if (idx > 0)
-            {
-                cleaned = cleaned[..idx];
-            }
-
-            return Version.TryParse(cleaned, out var parsed) ? parsed : null;
-        }
-
-        private static string NormalizeTag(string tag)
-        {
-            return tag.Trim().TrimStart('v', 'V');
         }
 
         private string GetCurrentAppVersion()
@@ -1026,34 +939,6 @@ namespace MeuGestorVODs
 
             return dialog.ShowDialog() == true ? input.Text.Trim() : null;
         }
-
-        private sealed class GitHubRelease
-        {
-            [JsonPropertyName("tag_name")]
-            public string TagName { get; set; } = string.Empty;
-
-            [JsonPropertyName("name")]
-            public string Name { get; set; } = string.Empty;
-
-            [JsonPropertyName("draft")]
-            public bool Draft { get; set; }
-
-            [JsonPropertyName("prerelease")]
-            public bool Prerelease { get; set; }
-
-            [JsonPropertyName("assets")]
-            public List<GitHubAsset> Assets { get; set; } = new List<GitHubAsset>();
-        }
-
-        private sealed class GitHubAsset
-        {
-            [JsonPropertyName("name")]
-            public string Name { get; set; } = string.Empty;
-
-            [JsonPropertyName("browser_download_url")]
-            public string BrowserDownloadUrl { get; set; } = string.Empty;
-        }
-
         private void OpenVodLinksTxt_Click(object sender, RoutedEventArgs e)
         {
             EnsureLinkDatabaseFiles();
@@ -1150,3 +1035,4 @@ namespace MeuGestorVODs
         }
     }
 }
+

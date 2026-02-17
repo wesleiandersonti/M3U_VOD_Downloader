@@ -34,6 +34,7 @@ namespace MeuGestorVODs
         private readonly MainViewModel _vm;
         private readonly HttpClient _releaseClient = new HttpClient();
         private readonly Dictionary<TabItem, Process> _embeddedTabProcesses = new();
+        private readonly Dictionary<TabItem, System.Windows.Forms.Panel> _embeddedTabHosts = new();
         private Dictionary<string, string> _downloadStructure = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private bool _isUpdateInProgress;
         private readonly List<M3UEntry> _allEntries = new List<M3UEntry>();
@@ -118,6 +119,16 @@ namespace MeuGestorVODs
         private const int GwlStyle = -16;
         private const int WsChild = 0x40000000;
         private const int WsVisible = 0x10000000;
+        private const int WsCaption = 0x00C00000;
+        private const int WsThickFrame = 0x00040000;
+        private const int WsMinimizeBox = 0x00020000;
+        private const int WsMaximizeBox = 0x00010000;
+        private const int WsSysMenu = 0x00080000;
+
+        private const uint SwpNoZOrder = 0x0004;
+        private const uint SwpNoActivate = 0x0010;
+        private const uint SwpFrameChanged = 0x0020;
+        private const uint SwpShowWindow = 0x0040;
         private const int SwShow = 5;
 
         [DllImport("user32.dll", SetLastError = true)]
@@ -134,6 +145,16 @@ namespace MeuGestorVODs
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool ShowWindow(IntPtr windowHandle, int command);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(
+            IntPtr windowHandle,
+            IntPtr windowInsertAfter,
+            int x,
+            int y,
+            int width,
+            int height,
+            uint flags);
 
         public MainWindow()
         {
@@ -162,7 +183,14 @@ namespace MeuGestorVODs
             _ = CheckForUpdatesSilentAsync();
 
             _linkCheckTimer.Tick += LinkCheckTimer_Tick;
-            StateChanged += (_, _) => UpdateWindowStateButton();
+            StateChanged += (_, _) =>
+            {
+                UpdateWindowStateButton();
+                ResizeSelectedEmbeddedTab();
+            };
+            SizeChanged += (_, _) => ResizeSelectedEmbeddedTab();
+            ChromeTabControl.SelectionChanged += (_, _) => ResizeSelectedEmbeddedTab();
+            ChromeTabControl.SizeChanged += (_, _) => ResizeSelectedEmbeddedTab();
             Closing += MainWindow_Closing;
             ApplyMonitorPanelLayout(MonitorPanelLayout.Normal);
             ApplyTheme(AppThemeMode.System, updateStatus: false);
@@ -2100,6 +2128,7 @@ namespace MeuGestorVODs
                 if (_embeddedTabProcesses.TryGetValue(existing, out var runningProcess) && !runningProcess.HasExited)
                 {
                     ChromeTabControl.SelectedItem = existing;
+                    Dispatcher.BeginInvoke(new Action(() => ResizeEmbeddedTab(existing)), DispatcherPriority.Background);
                     return;
                 }
 
@@ -2123,6 +2152,7 @@ namespace MeuGestorVODs
             host.Child = panel;
             grid.Children.Add(host);
             tab.Content = grid;
+            _embeddedTabHosts[tab] = panel;
 
             ChromeTabControl.Items.Add(tab);
             ChromeTabControl.SelectedItem = tab;
@@ -2161,6 +2191,7 @@ namespace MeuGestorVODs
             }
 
             panel.Resize += (_, _) => ResizeEmbeddedWindow(process, panel);
+            Dispatcher.BeginInvoke(new Action(() => ResizeEmbeddedWindow(process, panel)), DispatcherPriority.Background);
         }
 
         private async Task<bool> WaitAndAttachWindowAsync(Process process, System.Windows.Forms.Panel hostPanel)
@@ -2186,9 +2217,19 @@ namespace MeuGestorVODs
                     SetParent(windowHandle, hostPanel.Handle);
 
                     var style = GetWindowLong(windowHandle, GwlStyle);
-                    SetWindowLong(windowHandle, GwlStyle, style | WsChild | WsVisible);
+                    style &= ~(WsCaption | WsThickFrame | WsMinimizeBox | WsMaximizeBox | WsSysMenu);
+                    style |= WsChild | WsVisible;
+                    SetWindowLong(windowHandle, GwlStyle, style);
 
                     ResizeEmbeddedWindow(process, hostPanel);
+                    SetWindowPos(
+                        windowHandle,
+                        IntPtr.Zero,
+                        0,
+                        0,
+                        Math.Max(hostPanel.ClientSize.Width, 200),
+                        Math.Max(hostPanel.ClientSize.Height, 120),
+                        SwpNoZOrder | SwpNoActivate | SwpFrameChanged | SwpShowWindow);
                     ShowWindow(windowHandle, SwShow);
                     return true;
                 }
@@ -2217,12 +2258,14 @@ namespace MeuGestorVODs
             var width = Math.Max(hostPanel.ClientSize.Width, 200);
             var height = Math.Max(hostPanel.ClientSize.Height, 120);
             MoveWindow(windowHandle, 0, 0, width, height, true);
+            SetWindowPos(windowHandle, IntPtr.Zero, 0, 0, width, height, SwpNoZOrder | SwpNoActivate | SwpShowWindow);
         }
 
         private void CleanupEmbeddedProcessForTab(TabItem tab)
         {
             if (!_embeddedTabProcesses.TryGetValue(tab, out var process))
             {
+                _embeddedTabHosts.Remove(tab);
                 return;
             }
 
@@ -2243,6 +2286,24 @@ namespace MeuGestorVODs
 
             process.Dispose();
             _embeddedTabProcesses.Remove(tab);
+            _embeddedTabHosts.Remove(tab);
+        }
+
+        private void ResizeEmbeddedTab(TabItem tab)
+        {
+            if (_embeddedTabProcesses.TryGetValue(tab, out var process) &&
+                _embeddedTabHosts.TryGetValue(tab, out var hostPanel))
+            {
+                ResizeEmbeddedWindow(process, hostPanel);
+            }
+        }
+
+        private void ResizeSelectedEmbeddedTab()
+        {
+            if (ChromeTabControl.SelectedItem is TabItem selectedTab)
+            {
+                ResizeEmbeddedTab(selectedTab);
+            }
         }
 
         private void CleanupAllEmbeddedProcesses()

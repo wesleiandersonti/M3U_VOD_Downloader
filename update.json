@@ -1,11 +1,11 @@
 {
-  "version": "1.0.51",
-  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.51/MeuGestorVODs-Setup-v1.0.51.exe",
+  "version": "1.0.52",
+  "installerUrl": "https://github.com/wesleiandersonti/MEU_GESTOR_DE_VODS/releases/download/v1.0.52/MeuGestorVODs-Setup-v1.0.52.exe",
   "sha256": "",
   "notes": [
-    "Correcao: PlaylistFinder agora abre dentro do sistema em aba interna dedicada",
-    "Melhoria: Encapsulamento da janela do playlistfinder dentro do TabControl do app",
-    "Correcao: Fechamento de aba encerra o processo embutido com seguranca",
-    "Melhoria: Estabilidade no ciclo abrir/fechar do modulo IP E PORTA"
+    "Melhoria: PlaylistFinder agora redimensiona junto com a aba e com a janela principal",
+    "Correcao: Ajuste de layout do executavel embutido ao trocar abas",
+    "Correcao: Janela embutida sem bordas para melhor encaixe no TabControl",
+    "Melhoria: Responsividade do modulo IP E PORTA em maximizar/restaurar"
   ]
 }

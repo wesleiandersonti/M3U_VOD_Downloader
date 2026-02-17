@@ -30,6 +30,19 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.52] - 2026-02-17
+
+### 🔄 Melhorado (UX/UI)
+- **PlaylistFinder responsivo na aba interna**
+  - O conteudo embutido agora redimensiona junto com a aba e com a janela principal (normal/maximizada).
+  - Ajuste automatico ao trocar de aba para manter o encaixe visual.
+
+### 🐛 Corrigido (Fix)
+- **Ajuste de layout da janela embutida**
+  - Remocao de bordas e estilos externos do executavel embutido para ocupar melhor o espaco do TabControl.
+
+---
+
 ## [1.0.51] - 2026-02-17
 
 ### 🐛 Corrigido (Fix)

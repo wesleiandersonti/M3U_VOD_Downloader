@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Input;
 
 namespace MeuGestorVODs;
 
@@ -34,6 +35,19 @@ public class MainViewModel : INotifyPropertyChanged
     public Visibility GroupPanelVisibility { get => _groupPanelVisibility; set => Set(ref _groupPanelVisibility, value, nameof(GroupPanelVisibility)); }
     public bool IsLoading { get => _isLoading; set => Set(ref _isLoading, value, nameof(IsLoading)); }
     public M3UEntry SelectedEntry { get => _selectedEntry; set => Set(ref _selectedEntry, value, nameof(SelectedEntry)); }
+
+    public ICommand? LoadM3UCommand { get; set; }
+    public ICommand? BrowsePathCommand { get; set; }
+    public ICommand? ItemsSummaryCommand { get; set; }
+    public ICommand? GroupsSummaryCommand { get; set; }
+    public ICommand? SelectAllCommand { get; set; }
+    public ICommand? DeselectAllCommand { get; set; }
+    public ICommand? DownloadSelectedCommand { get; set; }
+    public ICommand? CheckUpdatesCommand { get; set; }
+    public ICommand? RollbackVersionCommand { get; set; }
+    public ICommand? OpenVodLinksTxtCommand { get; set; }
+    public ICommand? OpenLiveLinksTxtCommand { get; set; }
+    public ICommand? OpenGitHubCommand { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

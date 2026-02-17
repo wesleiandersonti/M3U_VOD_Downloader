@@ -123,6 +123,20 @@ namespace MeuGestorVODs
                     ApplyFilter();
                 }
             };
+
+            _vm.LoadM3UCommand = new RelayCommand(() => LoadM3U_Click(this, new RoutedEventArgs()));
+            _vm.BrowsePathCommand = new RelayCommand(() => BrowsePath_Click(this, new RoutedEventArgs()));
+            _vm.ItemsSummaryCommand = new RelayCommand(() => ItemsSummary_Click(this, new RoutedEventArgs()));
+            _vm.GroupsSummaryCommand = new RelayCommand(() => GroupsSummary_Click(this, new RoutedEventArgs()));
+            _vm.SelectAllCommand = new RelayCommand(() => SelectAll_Click(this, new RoutedEventArgs()));
+            _vm.DeselectAllCommand = new RelayCommand(() => DeselectAll_Click(this, new RoutedEventArgs()));
+            _vm.DownloadSelectedCommand = new RelayCommand(() => DownloadSelected_Click(this, new RoutedEventArgs()));
+            _vm.CheckUpdatesCommand = new RelayCommand(() => CheckUpdates_Click(this, new RoutedEventArgs()));
+            _vm.RollbackVersionCommand = new RelayCommand(() => RollbackVersion_Click(this, new RoutedEventArgs()));
+            _vm.OpenVodLinksTxtCommand = new RelayCommand(() => OpenVodLinksTxt_Click(this, new RoutedEventArgs()));
+            _vm.OpenLiveLinksTxtCommand = new RelayCommand(() => OpenLiveLinksTxt_Click(this, new RoutedEventArgs()));
+            _vm.OpenGitHubCommand = new RelayCommand(() => OpenGitHub_Click(this, new RoutedEventArgs()));
+
             DownloadPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Meu Gestor VODs");
             EnsureAndLoadDownloadStructure();
             EnsureLinkDatabaseFiles();
@@ -131,6 +145,8 @@ namespace MeuGestorVODs
             GroupCountText = "Grupos: 0";
             GroupFilterInfoText = "";
         }
+
+        #region Lista e Filtros
 
         private async void LoadM3U_Click(object sender, RoutedEventArgs e)
         {
@@ -560,6 +576,10 @@ namespace MeuGestorVODs
             return null;
         }
 
+        #endregion
+
+        #region Downloads e Armazenamento
+
         private async void DownloadSelected_Click(object sender, RoutedEventArgs e)
         {
             var selected = FilteredEntries.Where(x => x.IsSelected).ToList();
@@ -678,6 +698,10 @@ namespace MeuGestorVODs
         {
             return _storageService.BuildOutputPath(DownloadPath, _downloadStructure, entry);
         }
+
+        #endregion
+
+        #region Atualização e Versões
 
         private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
         {
@@ -935,6 +959,10 @@ namespace MeuGestorVODs
 
             return dialog.ShowDialog() == true ? input.Text.Trim() : null;
         }
+        #endregion
+
+        #region Integrações externas e utilitários
+
         private void OpenVodLinksTxt_Click(object sender, RoutedEventArgs e)
         {
             EnsureLinkDatabaseFiles();
@@ -977,6 +1005,8 @@ namespace MeuGestorVODs
                 UseShellExecute = true
             });
         }
+
+        #endregion
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string propertyName)

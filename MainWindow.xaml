@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:MeuGestorVODs"
-        Title="MEU GESTOR DE VODS v1.1" Height="700" Width="1100"
+        Title="MEU GESTOR DE VODS v1.2" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
@@ -34,7 +34,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="URL M3U:" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="SemiBold"/>
                 <TextBox Grid.Column="1" Text="{Binding M3UUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
-                <Button Grid.Column="2" Content="Carregar" Click="LoadM3U_Click" Padding="15,5" Margin="10,0,0,0"/>
+                <Button Grid.Column="2" Content="Carregar" Command="{Binding LoadM3UCommand}" Padding="15,5" Margin="10,0,0,0"/>
             </Grid>
 
             <!-- Download Path -->
@@ -46,7 +46,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Pasta Download:" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="SemiBold"/>
                 <TextBox Grid.Column="1" Text="{Binding DownloadPath}" Padding="5" IsReadOnly="True"/>
-                <Button Grid.Column="2" Content="Alterar" Click="BrowsePath_Click" Padding="15,5" Margin="10,0,0,0"/>
+                <Button Grid.Column="2" Content="Alterar" Command="{Binding BrowsePathCommand}" Padding="15,5" Margin="10,0,0,0"/>
             </Grid>
 
             <!-- Filter -->
@@ -79,8 +79,8 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,10,10,6">
-                        <Button Content="{Binding ItemCountText}" Click="ItemsSummary_Click" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                        <Button Content="{Binding GroupCountText}" Click="GroupsSummary_Click" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                        <Button Content="{Binding ItemCountText}" Command="{Binding ItemsSummaryCommand}" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                        <Button Content="{Binding GroupCountText}" Command="{Binding GroupsSummaryCommand}" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding GroupFilterInfoText}" VerticalAlignment="Center" Foreground="#666"/>
                     </StackPanel>
 
@@ -122,9 +122,9 @@
                     </Border>
 
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="10">
-                        <Button Content="Selecionar Todos" Click="SelectAll_Click" Padding="10,5" Margin="0,0,5,0"/>
-                        <Button Content="Desmarcar Todos" Click="DeselectAll_Click" Padding="10,5" Margin="0,0,20,0"/>
-                        <Button Content="Baixar Selecionados" Click="DownloadSelected_Click" Padding="15,5" Background="#4CAF50" Foreground="White"/>
+                        <Button Content="Selecionar Todos" Command="{Binding SelectAllCommand}" Padding="10,5" Margin="0,0,5,0"/>
+                        <Button Content="Desmarcar Todos" Command="{Binding DeselectAllCommand}" Padding="10,5" Margin="0,0,20,0"/>
+                        <Button Content="Baixar Selecionados" Command="{Binding DownloadSelectedCommand}" Padding="15,5" Background="#4CAF50" Foreground="White"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -176,11 +176,11 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding CurrentVersionText}" VerticalAlignment="Center" Margin="0,0,10,0" FontWeight="SemiBold"/>
-                <Button Grid.Column="2" Content="Verificar Atualizações" Click="CheckUpdates_Click" Padding="15,5" Margin="0,0,10,0" Background="#FF9800" Foreground="White"/>
-                <Button Grid.Column="3" Content="Voltar Versão" Click="RollbackVersion_Click" Padding="15,5" Margin="0,0,10,0" Background="#455A64" Foreground="White"/>
-                <Button Grid.Column="4" Content="Abrir TXT VOD" Click="OpenVodLinksTxt_Click" Padding="12,5" Margin="0,0,10,0"/>
-                <Button Grid.Column="5" Content="Abrir TXT Canais" Click="OpenLiveLinksTxt_Click" Padding="12,5" Margin="0,0,10,0"/>
-                <Button Grid.Column="6" Content="GitHub" Click="OpenGitHub_Click" Padding="15,5"/>
+                <Button Grid.Column="2" Content="Verificar Atualizações" Command="{Binding CheckUpdatesCommand}" Padding="15,5" Margin="0,0,10,0" Background="#FF9800" Foreground="White"/>
+                <Button Grid.Column="3" Content="Voltar Versão" Command="{Binding RollbackVersionCommand}" Padding="15,5" Margin="0,0,10,0" Background="#455A64" Foreground="White"/>
+                <Button Grid.Column="4" Content="Abrir TXT VOD" Command="{Binding OpenVodLinksTxtCommand}" Padding="12,5" Margin="0,0,10,0"/>
+                <Button Grid.Column="5" Content="Abrir TXT Canais" Command="{Binding OpenLiveLinksTxtCommand}" Padding="12,5" Margin="0,0,10,0"/>
+                <Button Grid.Column="6" Content="GitHub" Command="{Binding OpenGitHubCommand}" Padding="15,5"/>
             </Grid>
         </Border>
 

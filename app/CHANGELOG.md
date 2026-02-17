@@ -30,6 +30,23 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.47] - 2026-02-17
+
+### 🔄 Melhorado (UX/UI)
+- **Aplicacao de novo icone icon_256**
+  - Icone atualizado para executavel e instalador com o arquivo informado pelo usuario.
+  - Janela principal passa a usar icone PNG dedicado para maior compatibilidade de abertura.
+
+### 🛠️ Técnico (Build/Pipeline)
+- **Empacotamento de assets de icone**
+  - Arquivos de `app/assets/icons` agora sao copiados no build e publish.
+
+### 🐛 Corrigido (Fix)
+- **Estabilidade de inicializacao**
+  - Ajustes para evitar falha de abertura do app em instalacao limpa.
+
+---
+
 ## [1.0.46] - 2026-02-17
 
 ### 🎉 Adicionado (Features)

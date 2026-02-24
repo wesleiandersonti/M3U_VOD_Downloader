@@ -178,6 +178,7 @@
                             <MenuItem Header="6 LisoFlix" Click="MainMenuLisoFlix_Click"/>
                             <MenuItem Header="7 drm-player" Click="MainMenuDrmPlayer_Click"/>
                             <MenuItem Header="8 bot-iptv" Click="MainMenuBotIptv_Click"/>
+                            <MenuItem Header="9 Puxador Lista BR (Abertos)" Click="MainMenuBrazilOpenListPuller_Click"/>
                             <Separator/>
                             <MenuItem Header="Nova Janela" Click="NewWindow_Click"/>
                         </ContextMenu>

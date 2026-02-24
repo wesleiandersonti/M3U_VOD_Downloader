@@ -1861,6 +1861,187 @@ namespace MeuGestorVODs
             StatusMessage = "Modulo bot-iptv sem HTML integrado no momento.";
         }
 
+        private void MainMenuBrazilOpenListPuller_Click(object sender, RoutedEventArgs e)
+        {
+            var outputPath = Path.Combine(DownloadPath, "listas-legais", "canais_abertos_br.m3u");
+
+            var window = new System.Windows.Window
+            {
+                Title = "Puxador Lista BR (Abertos)",
+                Width = 760,
+                Height = 300,
+                MinWidth = 680,
+                MinHeight = 260,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 248, 252))
+            };
+
+            var root = new Grid { Margin = new Thickness(14) };
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                Text = "Atualize e gere playlist com canais abertos brasileiros (fontes publicas)",
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            Grid.SetRow(title, 0);
+            root.Children.Add(title);
+
+            var outputGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            outputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            outputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            outputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var outputLabel = new TextBlock
+            {
+                Text = "Arquivo .m3u:",
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeights.SemiBold
+            };
+            outputGrid.Children.Add(outputLabel);
+
+            var outputBox = new System.Windows.Controls.TextBox
+            {
+                Text = outputPath,
+                Height = 30
+            };
+            Grid.SetColumn(outputBox, 1);
+            outputGrid.Children.Add(outputBox);
+
+            var browseButton = new System.Windows.Controls.Button
+            {
+                Content = "Procurar",
+                Width = 90,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            browseButton.Click += (_, _) =>
+            {
+                var dialog = new SaveFileDialog
+                {
+                    Filter = "Playlist M3U (*.m3u)|*.m3u|Todos os arquivos (*.*)|*.*",
+                    FileName = Path.GetFileName(outputBox.Text),
+                    InitialDirectory = Path.GetDirectoryName(outputBox.Text)
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    outputBox.Text = dialog.FileName;
+                }
+            };
+            Grid.SetColumn(browseButton, 2);
+            outputGrid.Children.Add(browseButton);
+
+            Grid.SetRow(outputGrid, 1);
+            root.Children.Add(outputGrid);
+
+            var sourcePath = Path.Combine(AppContext.BaseDirectory, "assets", "legal_sources_br.json");
+            var sourceInfo = new TextBlock
+            {
+                Text = $"Fontes: {sourcePath}",
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(90, 90, 90)),
+                Margin = new Thickness(0, 0, 0, 12),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(sourceInfo, 2);
+            root.Children.Add(sourceInfo);
+
+            var resultText = new TextBlock
+            {
+                Text = "Pronto para atualizar.",
+                Margin = new Thickness(0, 0, 0, 12),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(resultText, 3);
+            root.Children.Add(resultText);
+
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+
+            var updateButton = new System.Windows.Controls.Button { Content = "Buscar e Atualizar", Width = 170, Margin = new Thickness(0, 0, 8, 0) };
+            var openButton = new System.Windows.Controls.Button { Content = "Abrir Arquivo", Width = 110, Margin = new Thickness(0, 0, 8, 0), IsEnabled = false };
+            var closeButton = new System.Windows.Controls.Button { Content = "Fechar", Width = 90 };
+
+            actions.Children.Add(updateButton);
+            actions.Children.Add(openButton);
+            actions.Children.Add(closeButton);
+            Grid.SetRow(actions, 4);
+            root.Children.Add(actions);
+
+            updateButton.Click += async (_, _) =>
+            {
+                var selectedPath = outputBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(selectedPath))
+                {
+                    System.Windows.MessageBox.Show("Informe o caminho do arquivo de saida.", "Puxador Lista BR", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                updateButton.IsEnabled = false;
+                openButton.IsEnabled = false;
+                closeButton.IsEnabled = false;
+                resultText.Text = "Buscando fontes...";
+
+                try
+                {
+                    var puller = new BrazilianOpenChannelsPullerService();
+                    var result = await puller.PullAndSaveAsync(selectedPath);
+
+                    var warningText = result.Warnings.Count > 0
+                        ? $" | Avisos: {result.Warnings.Count}"
+                        : string.Empty;
+
+                    var summary = $"Atualizado com sucesso. Fontes lidas: {result.SourcesRead}. Itens encontrados: {result.TotalFound}. Unicos salvos: {result.TotalUnique}{warningText}.";
+                    resultText.Text = summary;
+                    StatusMessage = summary;
+                    openButton.IsEnabled = File.Exists(selectedPath);
+                }
+                catch (Exception ex)
+                {
+                    resultText.Text = "Falha ao atualizar lista.";
+                    System.Windows.MessageBox.Show($"Erro ao gerar lista BR: {ex.Message}", "Puxador Lista BR", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally
+                {
+                    updateButton.IsEnabled = true;
+                    closeButton.IsEnabled = true;
+                }
+            };
+
+            openButton.Click += (_, _) =>
+            {
+                var selectedPath = outputBox.Text.Trim();
+                if (!File.Exists(selectedPath))
+                {
+                    System.Windows.MessageBox.Show("Arquivo ainda nao existe. Gere a lista primeiro.", "Puxador Lista BR", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "notepad.exe",
+                    Arguments = $"\"{selectedPath}\"",
+                    UseShellExecute = true
+                });
+            };
+
+            closeButton.Click += (_, _) => window.Close();
+
+            window.Content = root;
+            window.ShowDialog();
+        }
+
         private void CastToDevice_Click(object sender, RoutedEventArgs e)
         {
             // Verifica se há itens selecionados

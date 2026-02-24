@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "IPTV-ORG BR (GitHub Pages)",
+    "Url": "https://iptv-org.github.io/iptv/countries/br.m3u",
+    "Enabled": true
+  },
+  {
+    "Name": "IPTV-ORG BR (Raw)",
+    "Url": "https://raw.githubusercontent.com/iptv-org/iptv/master/countries/br.m3u",
+    "Enabled": true
+  },
+  {
+    "Name": "IPTV-ORG Português",
+    "Url": "https://iptv-org.github.io/iptv/languages/por.m3u",
+    "Enabled": false
+  }
+]

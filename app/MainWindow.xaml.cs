@@ -1732,10 +1732,61 @@ namespace MeuGestorVODs
             };
             optionsPanel.Children.Add(info);
 
+            var catalogInfo = new TextBlock
+            {
+                Text = "Catalogacao profissional (Filmes/Series): Titulo + URL + metadados opcionais.",
+                Margin = new Thickness(0, 8, 0, 4),
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(40, 50, 70))
+            };
+            optionsPanel.Children.Add(catalogInfo);
+
+            var catalogGrid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+            catalogGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+
+            var typeBox = new System.Windows.Controls.ComboBox { Height = 28, Margin = new Thickness(0, 0, 6, 0) };
+            typeBox.Items.Add("Canal");
+            typeBox.Items.Add("Filme");
+            typeBox.Items.Add("Serie");
+            typeBox.SelectedIndex = 0;
+
+            var catalogTitleUrlBox = new System.Windows.Controls.TextBox
+            {
+                Height = 28,
+                Margin = new Thickness(0, 0, 6, 0),
+                ToolTip = "Formato: Titulo|URL"
+            };
+
+            var yearBox = new System.Windows.Controls.TextBox { Height = 28, Margin = new Thickness(0, 0, 6, 0), ToolTip = "Ano" };
+            var seasonBox = new System.Windows.Controls.TextBox { Height = 28, Margin = new Thickness(0, 0, 6, 0), ToolTip = "Temp" };
+            var episodeBox = new System.Windows.Controls.TextBox { Height = 28, Margin = new Thickness(0, 0, 6, 0), ToolTip = "Ep" };
+
+            var addCatalogButton = new System.Windows.Controls.Button { Content = "Adicionar item", Height = 28 };
+
+            Grid.SetColumn(typeBox, 0);
+            Grid.SetColumn(catalogTitleUrlBox, 1);
+            Grid.SetColumn(yearBox, 2);
+            Grid.SetColumn(seasonBox, 3);
+            Grid.SetColumn(episodeBox, 4);
+            Grid.SetColumn(addCatalogButton, 5);
+
+            catalogGrid.Children.Add(typeBox);
+            catalogGrid.Children.Add(catalogTitleUrlBox);
+            catalogGrid.Children.Add(yearBox);
+            catalogGrid.Children.Add(seasonBox);
+            catalogGrid.Children.Add(episodeBox);
+            catalogGrid.Children.Add(addCatalogButton);
+            optionsPanel.Children.Add(catalogGrid);
+
             var validateOnlineCheck = new System.Windows.Controls.CheckBox
             {
                 Content = "Validar links online antes de salvar",
-                Margin = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, 4, 0, 0),
                 IsChecked = true
             };
             optionsPanel.Children.Add(validateOnlineCheck);
@@ -1753,6 +1804,36 @@ namespace MeuGestorVODs
             var generateApiButton = new System.Windows.Controls.Button { Content = "Gerar via API 24/7", Width = 170, Margin = new Thickness(0, 0, 8, 0) };
             var generateButton = new System.Windows.Controls.Button { Content = "Gerar M3U", Width = 110, Margin = new Thickness(0, 0, 8, 0) };
             var closeButton = new System.Windows.Controls.Button { Content = "Fechar", Width = 90 };
+
+            addCatalogButton.Click += (_, _) =>
+            {
+                var raw = catalogTitleUrlBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(raw) || !raw.Contains('|'))
+                {
+                    System.Windows.MessageBox.Show("Use o formato: Titulo|URL", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var sep = raw.IndexOf('|');
+                var title = raw[..sep].Trim();
+                var url = raw[(sep + 1)..].Trim();
+
+                if (string.IsNullOrWhiteSpace(title) || !IsYouTubeUrl(url))
+                {
+                    System.Windows.MessageBox.Show("Informe titulo e URL valida do YouTube.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var type = (typeBox.SelectedItem?.ToString() ?? "Canal").Trim().ToLowerInvariant();
+                var row = $"{title}|{url}|type={type}|year={yearBox.Text.Trim()}|season={seasonBox.Text.Trim()}|episode={episodeBox.Text.Trim()}";
+
+                urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? row : urlsBox.Text + Environment.NewLine + row;
+                urlsTabControl.SelectedIndex = 0;
+                catalogTitleUrlBox.Text = string.Empty;
+                yearBox.Text = string.Empty;
+                seasonBox.Text = string.Empty;
+                episodeBox.Text = string.Empty;
+            };
             actions.Children.Add(generateApiButton);
             actions.Children.Add(generateButton);
             actions.Children.Add(closeButton);
@@ -1878,12 +1959,39 @@ namespace MeuGestorVODs
                     {
                         var title = string.Empty;
                         var url = row;
+                        var type = "canal";
+                        var year = string.Empty;
+                        var season = string.Empty;
+                        var episode = string.Empty;
 
-                        var separatorIndex = row.IndexOf('|');
-                        if (separatorIndex > 0)
+                        var parts = row.Split('|');
+                        if (parts.Length >= 2)
                         {
-                            title = row[..separatorIndex].Trim();
-                            url = row[(separatorIndex + 1)..].Trim();
+                            title = parts[0].Trim();
+                            url = parts[1].Trim();
+
+                            foreach (var extra in parts.Skip(2))
+                            {
+                                var kv = extra.Split('=', 2);
+                                if (kv.Length != 2) continue;
+
+                                var key = kv[0].Trim().ToLowerInvariant();
+                                var value = kv[1].Trim();
+
+                                if (key == "type") type = value.ToLowerInvariant();
+                                else if (key == "year") year = value;
+                                else if (key == "season") season = value;
+                                else if (key == "episode") episode = value;
+                            }
+                        }
+                        else
+                        {
+                            var separatorIndex = row.IndexOf('|');
+                            if (separatorIndex > 0)
+                            {
+                                title = row[..separatorIndex].Trim();
+                                url = row[(separatorIndex + 1)..].Trim();
+                            }
                         }
 
                         if (!Uri.TryCreate(url, UriKind.Absolute, out _) || !IsYouTubeUrl(url))
@@ -1913,8 +2021,27 @@ namespace MeuGestorVODs
                             title = $"YouTube Item {added + 1}";
                         }
 
-                        var safeTitle = EscapeM3uAttribute(title);
-                        var safeGroup = EscapeM3uAttribute(groupTitle);
+                        var displayTitle = title;
+                        var effectiveGroup = groupTitle;
+
+                        if (type.Contains("filme") || type.Contains("movie"))
+                        {
+                            effectiveGroup = $"{groupTitle} | Filmes";
+                            if (!string.IsNullOrWhiteSpace(year)) displayTitle = $"{title} ({year})";
+                        }
+                        else if (type.Contains("serie") || type.Contains("série") || type.Contains("series"))
+                        {
+                            effectiveGroup = $"{groupTitle} | Series";
+                            if (!string.IsNullOrWhiteSpace(season) || !string.IsNullOrWhiteSpace(episode))
+                            {
+                                var s = int.TryParse(season, out var sn) ? sn.ToString("00") : (string.IsNullOrWhiteSpace(season) ? "01" : season);
+                                var e = int.TryParse(episode, out var ep) ? ep.ToString("00") : (string.IsNullOrWhiteSpace(episode) ? "01" : episode);
+                                displayTitle = $"{title} S{s}E{e}".Trim();
+                            }
+                        }
+
+                        var safeTitle = EscapeM3uAttribute(displayTitle);
+                        var safeGroup = EscapeM3uAttribute(effectiveGroup);
 
                         lines.Add($"#EXTINF:-1 tvg-name=\"{safeTitle}\" group-title=\"{safeGroup}\",{safeTitle}");
                         lines.Add(url);

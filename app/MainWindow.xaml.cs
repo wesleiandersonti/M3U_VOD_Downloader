@@ -1925,7 +1925,7 @@ namespace MeuGestorVODs
             };
             browseButton.Click += (_, _) =>
             {
-                var dialog = new SaveFileDialog
+                var dialog = new Microsoft.Win32.SaveFileDialog
                 {
                     Filter = "Playlist M3U (*.m3u)|*.m3u|Todos os arquivos (*.*)|*.*",
                     FileName = Path.GetFileName(outputBox.Text),
@@ -1965,8 +1965,8 @@ namespace MeuGestorVODs
 
             var actions = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Right
             };
 
             var updateButton = new System.Windows.Controls.Button { Content = "Buscar e Atualizar", Width = 170, Margin = new Thickness(0, 0, 8, 0) };

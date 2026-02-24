@@ -1573,7 +1573,7 @@ namespace MeuGestorVODs
             Grid.SetRow(urlsLabel, 4);
             root.Children.Add(urlsLabel);
 
-            var urlsTabControl = new TabControl
+            var urlsTabControl = new System.Windows.Controls.TabControl
             {
                 Margin = new Thickness(0)
             };
@@ -1621,7 +1621,7 @@ namespace MeuGestorVODs
             Grid.SetRow(favActions1, 1);
             favoritesRoot.Children.Add(favActions1);
 
-            var favoritesList = new ListBox { MinHeight = 130 };
+            var favoritesList = new System.Windows.Controls.ListBox { MinHeight = 130 };
             Grid.SetRow(favoritesList, 2);
             favoritesRoot.Children.Add(favoritesList);
 

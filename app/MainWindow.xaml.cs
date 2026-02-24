@@ -1565,7 +1565,7 @@ namespace MeuGestorVODs
 
             var urlsLabel = new TextBlock
             {
-                Text = "Links YouTube:",
+                Text = "Conteudo YouTube:",
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, 2, 8, 6),
                 FontWeight = FontWeights.SemiBold
@@ -1573,6 +1573,12 @@ namespace MeuGestorVODs
             Grid.SetRow(urlsLabel, 4);
             root.Children.Add(urlsLabel);
 
+            var urlsTabControl = new TabControl
+            {
+                Margin = new Thickness(0)
+            };
+
+            var tabLinks = new TabItem { Header = "Links" };
             var urlsBox = new System.Windows.Controls.TextBox
             {
                 AcceptsReturn = true,
@@ -1581,9 +1587,137 @@ namespace MeuGestorVODs
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 MinHeight = 220
             };
-            Grid.SetRow(urlsBox, 5);
-            Grid.SetColumn(urlsBox, 1);
-            root.Children.Add(urlsBox);
+            tabLinks.Content = urlsBox;
+
+            var tabFavorites = new TabItem { Header = "Favoritos" };
+            var favoritesRoot = new Grid();
+            favoritesRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            favoritesRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            favoritesRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            favoritesRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var favTitleBox = new System.Windows.Controls.TextBox { Height = 28, Margin = new Thickness(0, 0, 0, 6) };
+            favTitleBox.SetCurrentValue(System.Windows.Controls.TextBox.TextProperty, "");
+            var favUrlBox = new System.Windows.Controls.TextBox { Height = 28, Margin = new Thickness(0, 0, 0, 6) };
+
+            var favTitleLabel = new TextBlock { Text = "Titulo (opcional)", Margin = new Thickness(0, 0, 0, 2) };
+            var favUrlLabel = new TextBlock { Text = "URL YouTube", Margin = new Thickness(0, 0, 0, 2) };
+
+            var topPanel = new StackPanel();
+            topPanel.Children.Add(favTitleLabel);
+            topPanel.Children.Add(favTitleBox);
+            topPanel.Children.Add(favUrlLabel);
+            topPanel.Children.Add(favUrlBox);
+            Grid.SetRow(topPanel, 0);
+            favoritesRoot.Children.Add(topPanel);
+
+            var favActions1 = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            var addFavButton = new System.Windows.Controls.Button { Content = "Salvar favorito", Width = 120, Margin = new Thickness(0, 0, 8, 0) };
+            var addFavToLinksButton = new System.Windows.Controls.Button { Content = "Adicionar aos links", Width = 130, Margin = new Thickness(0, 0, 8, 0) };
+            var addAllFavToLinksButton = new System.Windows.Controls.Button { Content = "Adicionar todos", Width = 120 };
+            favActions1.Children.Add(addFavButton);
+            favActions1.Children.Add(addFavToLinksButton);
+            favActions1.Children.Add(addAllFavToLinksButton);
+            Grid.SetRow(favActions1, 1);
+            favoritesRoot.Children.Add(favActions1);
+
+            var favoritesList = new ListBox { MinHeight = 130 };
+            Grid.SetRow(favoritesList, 2);
+            favoritesRoot.Children.Add(favoritesList);
+
+            var favActions2 = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right, Margin = new Thickness(0, 6, 0, 0) };
+            var removeFavButton = new System.Windows.Controls.Button { Content = "Remover selecionado", Width = 150, Margin = new Thickness(0, 0, 8, 0) };
+            var saveFavButton = new System.Windows.Controls.Button { Content = "Salvar lista", Width = 100 };
+            favActions2.Children.Add(removeFavButton);
+            favActions2.Children.Add(saveFavButton);
+            Grid.SetRow(favActions2, 3);
+            favoritesRoot.Children.Add(favActions2);
+
+            tabFavorites.Content = favoritesRoot;
+
+            urlsTabControl.Items.Add(tabLinks);
+            urlsTabControl.Items.Add(tabFavorites);
+
+            var favorites = LoadYouTubeFavorites();
+            void RefreshFavoritesList()
+            {
+                favoritesList.ItemsSource = null;
+                favoritesList.ItemsSource = favorites.Select(f => f.Display).ToList();
+            }
+            RefreshFavoritesList();
+
+            addFavButton.Click += (_, _) =>
+            {
+                var url = favUrlBox.Text.Trim();
+                var title = favTitleBox.Text.Trim();
+                if (!IsYouTubeUrl(url))
+                {
+                    System.Windows.MessageBox.Show("Informe uma URL valida do YouTube.", "Favoritos YouTube", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (favorites.Any(f => string.Equals(f.Url, url, StringComparison.OrdinalIgnoreCase)))
+                {
+                    System.Windows.MessageBox.Show("Este canal já está salvo nos favoritos.", "Favoritos YouTube", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                favorites.Add(new YouTubeFavoriteEntry { Title = title, Url = url });
+                RefreshFavoritesList();
+                favUrlBox.Text = string.Empty;
+            };
+
+            addFavToLinksButton.Click += (_, _) =>
+            {
+                if (favoritesList.SelectedIndex < 0 || favoritesList.SelectedIndex >= favorites.Count)
+                {
+                    System.Windows.MessageBox.Show("Selecione um favorito na lista.", "Favoritos YouTube", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var item = favorites[favoritesList.SelectedIndex];
+                var row = string.IsNullOrWhiteSpace(item.Title) ? item.Url : $"{item.Title}|{item.Url}";
+                urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? row : urlsBox.Text + Environment.NewLine + row;
+                urlsTabControl.SelectedIndex = 0;
+            };
+
+            addAllFavToLinksButton.Click += (_, _) =>
+            {
+                if (favorites.Count == 0)
+                {
+                    System.Windows.MessageBox.Show("Nenhum favorito salvo.", "Favoritos YouTube", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var rows = favorites
+                    .Select(item => string.IsNullOrWhiteSpace(item.Title) ? item.Url : $"{item.Title}|{item.Url}")
+                    .ToList();
+
+                var block = string.Join(Environment.NewLine, rows);
+                urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? block : urlsBox.Text + Environment.NewLine + block;
+                urlsTabControl.SelectedIndex = 0;
+            };
+
+            removeFavButton.Click += (_, _) =>
+            {
+                if (favoritesList.SelectedIndex < 0 || favoritesList.SelectedIndex >= favorites.Count)
+                {
+                    return;
+                }
+
+                favorites.RemoveAt(favoritesList.SelectedIndex);
+                RefreshFavoritesList();
+            };
+
+            saveFavButton.Click += (_, _) =>
+            {
+                SaveYouTubeFavorites(favorites);
+                System.Windows.MessageBox.Show("Favoritos salvos com sucesso.", "Favoritos YouTube", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+
+            Grid.SetRow(urlsTabControl, 5);
+            Grid.SetColumn(urlsTabControl, 1);
+            root.Children.Add(urlsTabControl);
 
             var optionsPanel = new StackPanel
             {

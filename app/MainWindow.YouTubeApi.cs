@@ -128,6 +128,47 @@ namespace MeuGestorVODs
             return Path.Combine(baseFolder, YouTubeLiveApiConnectionFileName);
         }
 
+        private static string GetYouTubeFavoritesFilePath()
+        {
+            var baseFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MeuGestorVODs");
+            return Path.Combine(baseFolder, YouTubeFavoritesFileName);
+        }
+
+        private List<YouTubeFavoriteEntry> LoadYouTubeFavorites()
+        {
+            try
+            {
+                var path = GetYouTubeFavoritesFilePath();
+                if (!File.Exists(path))
+                {
+                    return new List<YouTubeFavoriteEntry>();
+                }
+
+                var json = File.ReadAllText(path);
+                var items = JsonSerializer.Deserialize<List<YouTubeFavoriteEntry>>(json);
+                return items ?? new List<YouTubeFavoriteEntry>();
+            }
+            catch
+            {
+                return new List<YouTubeFavoriteEntry>();
+            }
+        }
+
+        private void SaveYouTubeFavorites(List<YouTubeFavoriteEntry> favorites)
+        {
+            var path = GetYouTubeFavoritesFilePath();
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var json = JsonSerializer.Serialize(favorites, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+
         private static Uri BuildYouTubeApiUri(string baseUrl, string route)
         {
             var normalizedBase = baseUrl.Trim();
@@ -287,5 +328,14 @@ namespace MeuGestorVODs
 
         [JsonIgnore]
         public string ApiKey { get; set; } = string.Empty;
+    }
+
+    public class YouTubeFavoriteEntry
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public string Display => string.IsNullOrWhiteSpace(Title) ? Url : $"{Title} | {Url}";
     }
 }

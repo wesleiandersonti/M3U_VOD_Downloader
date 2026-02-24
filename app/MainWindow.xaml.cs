@@ -1583,16 +1583,30 @@ namespace MeuGestorVODs
             Grid.SetColumn(urlsBox, 1);
             root.Children.Add(urlsBox);
 
+            var optionsPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 8, 0, 10)
+            };
+
             var info = new TextBlock
             {
                 Text = "Use 1 URL por linha. Opcional: Titulo|URL para nome personalizado no M3U.",
                 Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(70, 80, 95)),
-                Margin = new Thickness(0, 8, 0, 10),
                 TextWrapping = TextWrapping.Wrap
             };
-            Grid.SetRow(info, 6);
-            Grid.SetColumnSpan(info, 2);
-            root.Children.Add(info);
+            optionsPanel.Children.Add(info);
+
+            var validateOnlineCheck = new System.Windows.Controls.CheckBox
+            {
+                Content = "Validar links online antes de salvar",
+                Margin = new Thickness(0, 8, 0, 0),
+                IsChecked = true
+            };
+            optionsPanel.Children.Add(validateOnlineCheck);
+
+            Grid.SetRow(optionsPanel, 6);
+            Grid.SetColumnSpan(optionsPanel, 2);
+            root.Children.Add(optionsPanel);
 
             var actions = new System.Windows.Controls.StackPanel
             {
@@ -1686,11 +1700,12 @@ namespace MeuGestorVODs
                 }
             };
 
-            generateButton.Click += (_, _) =>
+            generateButton.Click += async (_, _) =>
             {
                 var groupTitle = string.IsNullOrWhiteSpace(groupBox.Text) ? "YouTube | Conteudos" : groupBox.Text.Trim();
                 var listName = string.IsNullOrWhiteSpace(listNameBox.Text) ? "YouTube Playlist" : listNameBox.Text.Trim();
                 var outputPath = outputPathBox.Text.Trim();
+                var validateOnline = validateOnlineCheck.IsChecked == true;
 
                 if (string.IsNullOrWhiteSpace(outputPath))
                 {
@@ -1710,75 +1725,107 @@ namespace MeuGestorVODs
                     return;
                 }
 
-                var lines = new List<string>
+                generateApiButton.IsEnabled = false;
+                generateButton.IsEnabled = false;
+                closeButton.IsEnabled = false;
+
+                try
                 {
-                    "#EXTM3U",
-                    $"#PLAYLIST:{EscapeM3uAttribute(listName)}"
-                };
-
-                var added = 0;
-                var skipped = 0;
-
-                foreach (var row in rows)
-                {
-                    var title = string.Empty;
-                    var url = row;
-
-                    var separatorIndex = row.IndexOf('|');
-                    if (separatorIndex > 0)
+                    var lines = new List<string>
                     {
-                        title = row[..separatorIndex].Trim();
-                        url = row[(separatorIndex + 1)..].Trim();
+                        "#EXTM3U",
+                        $"#PLAYLIST:{EscapeM3uAttribute(listName)}"
+                    };
+
+                    var added = 0;
+                    var skippedInvalid = 0;
+                    var skippedDuplicate = 0;
+                    var skippedOffline = 0;
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var row in rows)
+                    {
+                        var title = string.Empty;
+                        var url = row;
+
+                        var separatorIndex = row.IndexOf('|');
+                        if (separatorIndex > 0)
+                        {
+                            title = row[..separatorIndex].Trim();
+                            url = row[(separatorIndex + 1)..].Trim();
+                        }
+
+                        if (!Uri.TryCreate(url, UriKind.Absolute, out _) || !IsYouTubeUrl(url))
+                        {
+                            skippedInvalid++;
+                            continue;
+                        }
+
+                        if (!seen.Add(url))
+                        {
+                            skippedDuplicate++;
+                            continue;
+                        }
+
+                        if (validateOnline)
+                        {
+                            var isOnline = await IsUrlLikelyOnlineAsync(url);
+                            if (!isOnline)
+                            {
+                                skippedOffline++;
+                                continue;
+                            }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(title))
+                        {
+                            title = $"YouTube Item {added + 1}";
+                        }
+
+                        var safeTitle = EscapeM3uAttribute(title);
+                        var safeGroup = EscapeM3uAttribute(groupTitle);
+
+                        lines.Add($"#EXTINF:-1 tvg-name=\"{safeTitle}\" group-title=\"{safeGroup}\",{safeTitle}");
+                        lines.Add(url);
+                        added++;
                     }
 
-                    if (!Uri.TryCreate(url, UriKind.Absolute, out _) || !IsYouTubeUrl(url))
+                    if (added == 0)
                     {
-                        skipped++;
-                        continue;
+                        System.Windows.MessageBox.Show("Nenhum link valido/online de YouTube foi encontrado.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
                     }
 
-                    if (string.IsNullOrWhiteSpace(title))
+                    var dir = Path.GetDirectoryName(outputPath);
+                    if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
                     {
-                        title = $"YouTube Item {added + 1}";
+                        Directory.CreateDirectory(dir);
                     }
 
-                    var safeTitle = EscapeM3uAttribute(title);
-                    var safeGroup = EscapeM3uAttribute(groupTitle);
+                    File.WriteAllLines(outputPath, lines);
 
-                    lines.Add($"#EXTINF:-1 tvg-name=\"{safeTitle}\" group-title=\"{safeGroup}\",{safeTitle}");
-                    lines.Add(url);
-                    added++;
-                }
+                    StatusMessage = $"M3U YouTube gerado: {added} adicionados | invalidos: {skippedInvalid} | duplicados: {skippedDuplicate} | offline: {skippedOffline}.";
+                    var openNow = System.Windows.MessageBox.Show(
+                        $"Arquivo criado com sucesso.\n\nAdicionados: {added}\nInvalidos: {skippedInvalid}\nDuplicados: {skippedDuplicate}\nOffline: {skippedOffline}\n\nAbrir no Bloco de Notas agora?",
+                        "YouTube para M3U",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
 
-                if (added == 0)
-                {
-                    System.Windows.MessageBox.Show("Nenhum link valido de YouTube foi encontrado.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                var dir = Path.GetDirectoryName(outputPath);
-                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-
-                File.WriteAllLines(outputPath, lines);
-
-                StatusMessage = $"M3U YouTube gerado: {added} link(s), {skipped} ignorado(s).";
-                var openNow = System.Windows.MessageBox.Show(
-                    $"Arquivo criado com sucesso.\n\nAdicionados: {added}\nIgnorados: {skipped}\n\nAbrir no Bloco de Notas agora?",
-                    "YouTube para M3U",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Information);
-
-                if (openNow == MessageBoxResult.Yes)
-                {
-                    Process.Start(new ProcessStartInfo
+                    if (openNow == MessageBoxResult.Yes)
                     {
-                        FileName = "notepad.exe",
-                        Arguments = $"\"{outputPath}\"",
-                        UseShellExecute = true
-                    });
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "notepad.exe",
+                            Arguments = $"\"{outputPath}\"",
+                            UseShellExecute = true
+                        });
+                    }
+                }
+                finally
+                {
+                    generateApiButton.IsEnabled = true;
+                    generateButton.IsEnabled = true;
+                    closeButton.IsEnabled = true;
                 }
             };
 
@@ -2803,6 +2850,21 @@ namespace MeuGestorVODs
 
             var host = uri.Host.ToLowerInvariant();
             return host.Contains("youtube.com") || host.Contains("youtu.be");
+        }
+
+        private static async Task<bool> IsUrlLikelyOnlineAsync(string url)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                return (int)res.StatusCode >= 200 && (int)res.StatusCode < 400;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static void AddConnectionField(Grid root, int row, string label, out System.Windows.Controls.TextBox textBox, string initialValue)

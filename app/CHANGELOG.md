@@ -30,6 +30,19 @@ e este projeto adere a [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.73] - 2026-02-25
+
+### 🐛 Corrigido (Fix)
+- **YouTube para M3U API 24/7 configuravel novamente**
+  - Removida chave fixa no app; `API Base URL` e `X-API-Key` voltaram a ser editaveis no popup.
+  - Persistencia local restaurada para URL/chave da API com protecao local.
+
+### 🔄 Melhorado (UX/UI)
+- **Saida de arquivo novamente livre**
+  - Caminho do arquivo M3U voltou a ser definido pelo usuario no campo de saida e no seletor `Procurar`.
+
+---
+
 ## [1.0.57] - 2026-02-17
 
 ### 🎉 Adicionado (Features)

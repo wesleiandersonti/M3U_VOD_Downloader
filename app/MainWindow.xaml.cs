@@ -1437,7 +1437,7 @@ namespace MeuGestorVODs
 
         private void MainMenuYouTubeToM3u_Click(object sender, RoutedEventArgs e)
         {
-            // Configuracao fixa local da API 24/7
+            var savedApiConfig = LoadYouTubeLiveApiConfig();
 
             var window = new System.Windows.Window
             {
@@ -1483,7 +1483,7 @@ namespace MeuGestorVODs
 
             var outputPathBox = new System.Windows.Controls.TextBox
             {
-                Text = Path.Combine(DownloadPath, "listas-youtube", YouTubeApiFixedOutputFileName),
+                Text = Path.Combine(DownloadPath, $"youtube_{DateTime.Now:yyyyMMdd_HHmm}.m3u"),
                 Height = 28
             };
             outputRow.Children.Add(outputPathBox);
@@ -1532,10 +1532,9 @@ namespace MeuGestorVODs
 
             var apiBaseUrlBox = new System.Windows.Controls.TextBox
             {
-                Text = YouTubeLiveApiDefaultBaseUrl,
+                Text = string.IsNullOrWhiteSpace(savedApiConfig.BaseUrl) ? YouTubeLiveApiDefaultBaseUrl : savedApiConfig.BaseUrl,
                 Height = 28,
-                ToolTip = "API fixa local 24/7",
-                IsReadOnly = true
+                ToolTip = "Exemplo: http://127.0.0.1:8085"
             };
             apiRow.Children.Add(apiBaseUrlBox);
 
@@ -1552,10 +1551,9 @@ namespace MeuGestorVODs
             var apiKeyBox = new System.Windows.Controls.PasswordBox
             {
                 Height = 28,
-                ToolTip = "API key fixa local",
-                IsEnabled = false
+                ToolTip = "API key do YouTube Live Manager"
             };
-            apiKeyBox.Password = YouTubeLiveApiFixedKey;
+            apiKeyBox.Password = savedApiConfig.ApiKey ?? string.Empty;
             Grid.SetColumn(apiKeyBox, 2);
             apiRow.Children.Add(apiKeyBox);
 
@@ -2002,9 +2000,9 @@ namespace MeuGestorVODs
 
             generateApiButton.Click += async (_, _) =>
             {
-                var outputPath = Path.Combine(DownloadPath, "listas-youtube", YouTubeApiFixedOutputFileName);
-                var apiBaseUrl = YouTubeLiveApiDefaultBaseUrl;
-                var apiKey = YouTubeLiveApiFixedKey;
+                var outputPath = outputPathBox.Text.Trim();
+                var apiBaseUrl = apiBaseUrlBox.Text.Trim();
+                var apiKey = apiKeyBox.Password.Trim();
 
                 if (string.IsNullOrWhiteSpace(outputPath))
                 {
@@ -2034,7 +2032,12 @@ namespace MeuGestorVODs
 
                     File.WriteAllText(outputPath, exportResult.Content);
 
-                    // Configuração fixa local (API e key constantes)
+                    SaveYouTubeLiveApiConfig(new YouTubeLiveApiConfig
+                    {
+                        BaseUrl = apiBaseUrl,
+                        ApiKey = apiKey,
+                        ApiKeyProtected = ProtectSecret(apiKey)
+                    });
 
                     var channelsText = exportResult.ChannelsCount > 0 ? exportResult.ChannelsCount.ToString() : "N/D";
                     StatusMessage = $"M3U YouTube API gerado com canais ativos: {channelsText}.";

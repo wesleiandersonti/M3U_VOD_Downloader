@@ -1452,6 +1452,14 @@ namespace MeuGestorVODs
             };
 
             var learning = new LearningFeedbackService(GetLearningFeedbackFilePath());
+            static string ScopeByType(string t)
+            {
+                var n = (t ?? string.Empty).ToLowerInvariant();
+                if (n.Contains("filme") || n.Contains("movie")) return "youtube-m3u-filme";
+                if (n.Contains("serie") || n.Contains("série") || n.Contains("series")) return "youtube-m3u-serie";
+                return "youtube-m3u-canal";
+            }
+
             var learningSnapshot = learning.GetSnapshot("youtube-m3u");
             var learningFailRate = learningSnapshot.Total > 0 ? (learningSnapshot.Total - learningSnapshot.Success) * 100 / learningSnapshot.Total : 0;
 
@@ -1917,7 +1925,13 @@ namespace MeuGestorVODs
                 if (!string.IsNullOrWhiteSpace(searchQuery)) queries.Add(searchQuery.Trim());
 
                 var mode = (searchMode ?? string.Empty).ToLowerInvariant();
-                var topLearningError = learningSnapshot.TopErrors.FirstOrDefault() ?? string.Empty;
+                var modeScope = mode.Contains("filmes") && !mode.Contains("séries") && !mode.Contains("series")
+                    ? "youtube-m3u-filme"
+                    : (mode.Contains("séries") || mode.Contains("series"))
+                        ? "youtube-m3u-serie"
+                        : "youtube-m3u-canal";
+                var modeSnapshot = learning.GetSnapshot(modeScope);
+                var topLearningError = modeSnapshot.TopErrors.FirstOrDefault() ?? learningSnapshot.TopErrors.FirstOrDefault() ?? string.Empty;
                 if (mode.Contains("filmes") && !mode.Contains("série") && !mode.Contains("series"))
                 {
                     queries.AddRange(new[] { "filmes em alta", "filme completo dublado", "lançamentos filmes" });
@@ -2004,7 +2018,9 @@ namespace MeuGestorVODs
 
                 if (string.IsNullOrWhiteSpace(title) || !IsYouTubeUrl(url))
                 {
+                    var selectedType = (typeBox.SelectedItem?.ToString() ?? "Canal").Trim().ToLowerInvariant();
                     learning.Log("youtube-m3u", "add-item", false, "URL_INVALIDA", "Titulo/URL invalido");
+                    learning.Log(ScopeByType(selectedType), "add-item", false, "URL_INVALIDA", "entrada-manual");
                     RefreshLearningStatus();
                     System.Windows.MessageBox.Show("Informe titulo e URL valida do YouTube.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
@@ -2018,6 +2034,7 @@ namespace MeuGestorVODs
                 urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? row : urlsBox.Text + Environment.NewLine + row;
                 urlsTabControl.SelectedIndex = 0;
                 learning.Log("youtube-m3u", "add-item", true, note: $"tipo={effectiveType}");
+                learning.Log(ScopeByType(effectiveType), "add-item", true, note: "entrada-manual");
                 RefreshLearningStatus();
                 catalogTitleUrlBox.Text = string.Empty;
             };
@@ -2034,6 +2051,7 @@ namespace MeuGestorVODs
                     if (discovered.Count == 0)
                     {
                         learning.Log("youtube-m3u", "auto-search", false, "SEM_RESULTADO", $"modo={searchMode};q={query}");
+                        learning.Log(ScopeByType(searchMode), "auto-search", false, "SEM_RESULTADO", $"q={query}");
                         RefreshLearningStatus();
                         System.Windows.MessageBox.Show("Nenhum item encontrado agora. Tente um termo no campo de pesquisa (ex.: filmes acao 2026) e clique novamente.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Information);
                         return;
@@ -2047,6 +2065,10 @@ namespace MeuGestorVODs
                     urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? block : urlsBox.Text + Environment.NewLine + block;
                     urlsTabControl.SelectedIndex = 0;
                     learning.Log("youtube-m3u", "auto-search", true, note: $"modo={searchMode};itens={discovered.Count}");
+                    foreach (var g in discovered.GroupBy(x => ScopeByType(x.type)))
+                    {
+                        learning.Log(g.Key, "auto-search", true, note: $"itens={g.Count()}");
+                    }
                     RefreshLearningStatus();
                     StatusMessage = $"Pesquisa automática concluída: {discovered.Count} itens adicionados (filtro anti trailer/shorts ativo).";
                 }

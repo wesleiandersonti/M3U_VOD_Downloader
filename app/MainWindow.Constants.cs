@@ -37,6 +37,7 @@ namespace MeuGestorVODs
         private const string XuiOneConnectionFileName = "xui_one_connection.json";
         private const string YouTubeLiveApiConnectionFileName = "youtube_live_api_connection.json";
         private const string YouTubeFavoritesFileName = "youtube_favoritos.json";
+        private const string LearningFeedbackFileName = "learning_feedback.json";
         private const string LisoFlixHtmlFileName = "LisoFlix - Copia.html";
         private const string DarkBulletHtmlFileName = "DARK BULLET COM PLAYER INTEGRADO.HTML";
         private const string DrmPlayerHtmlFileName = "drm-player/index.html";

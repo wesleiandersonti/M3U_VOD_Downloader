@@ -136,6 +136,14 @@ namespace MeuGestorVODs
             return Path.Combine(baseFolder, YouTubeFavoritesFileName);
         }
 
+        private static string GetLearningFeedbackFilePath()
+        {
+            var baseFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MeuGestorVODs");
+            return Path.Combine(baseFolder, LearningFeedbackFileName);
+        }
+
         private List<YouTubeFavoriteEntry> LoadYouTubeFavorites()
         {
             try

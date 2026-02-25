@@ -1451,6 +1451,7 @@ namespace MeuGestorVODs
                 Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(246, 248, 252))
             };
 
+            var learning = new LearningFeedbackService(GetLearningFeedbackFilePath());
             var root = new Grid { Margin = new Thickness(14) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1802,6 +1803,30 @@ namespace MeuGestorVODs
             searchRow.Children.Add(autoSearchButton);
             optionsPanel.Children.Add(searchRow);
 
+            var learningStatusText = new TextBlock
+            {
+                Margin = new Thickness(0, 6, 0, 0),
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(65, 80, 110)),
+                TextWrapping = TextWrapping.Wrap
+            };
+            optionsPanel.Children.Add(learningStatusText);
+
+            void RefreshLearningStatus()
+            {
+                var snap = learning.GetSnapshot("youtube-m3u");
+                if (snap.Total == 0)
+                {
+                    learningStatusText.Text = "Aprendizado: ainda sem histórico.";
+                    return;
+                }
+
+                var rate = snap.Total > 0 ? (snap.Success * 100 / snap.Total) : 0;
+                var topError = snap.TopErrors.FirstOrDefault() ?? "nenhum";
+                learningStatusText.Text = $"Aprendizado: {rate}% acerto ({snap.Success}/{snap.Total}) | score {snap.Score} | erro recorrente: {topError}";
+            }
+
+            RefreshLearningStatus();
+
             Grid.SetRow(optionsPanel, 6);
             Grid.SetColumnSpan(optionsPanel, 2);
             root.Children.Add(optionsPanel);
@@ -1937,6 +1962,8 @@ namespace MeuGestorVODs
                 var raw = catalogTitleUrlBox.Text.Trim();
                 if (string.IsNullOrWhiteSpace(raw) || !raw.Contains('|'))
                 {
+                    learning.Log("youtube-m3u", "add-item", false, "FORMATO_INVALIDO", "Esperado Titulo|URL");
+                    RefreshLearningStatus();
                     System.Windows.MessageBox.Show("Use o formato: Titulo|URL", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
@@ -1947,6 +1974,8 @@ namespace MeuGestorVODs
 
                 if (string.IsNullOrWhiteSpace(title) || !IsYouTubeUrl(url))
                 {
+                    learning.Log("youtube-m3u", "add-item", false, "URL_INVALIDA", "Titulo/URL invalido");
+                    RefreshLearningStatus();
                     System.Windows.MessageBox.Show("Informe titulo e URL valida do YouTube.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -1958,6 +1987,8 @@ namespace MeuGestorVODs
 
                 urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? row : urlsBox.Text + Environment.NewLine + row;
                 urlsTabControl.SelectedIndex = 0;
+                learning.Log("youtube-m3u", "add-item", true, note: $"tipo={effectiveType}");
+                RefreshLearningStatus();
                 catalogTitleUrlBox.Text = string.Empty;
             };
 
@@ -1972,7 +2003,9 @@ namespace MeuGestorVODs
                     var discovered = await DiscoverTrendingYouTubeItemsAsync(query, searchMode);
                     if (discovered.Count == 0)
                     {
-                        System.Windows.MessageBox.Show("Nenhum item encontrado agora. Tente um termo no campo Titulo|URL (ex.: filmes acao 2026) e clique novamente.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Information);
+                        learning.Log("youtube-m3u", "auto-search", false, "SEM_RESULTADO", $"modo={searchMode};q={query}");
+                        RefreshLearningStatus();
+                        System.Windows.MessageBox.Show("Nenhum item encontrado agora. Tente um termo no campo de pesquisa (ex.: filmes acao 2026) e clique novamente.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Information);
                         return;
                     }
 
@@ -1983,7 +2016,15 @@ namespace MeuGestorVODs
                     var block = string.Join(Environment.NewLine, rows);
                     urlsBox.Text = string.IsNullOrWhiteSpace(urlsBox.Text) ? block : urlsBox.Text + Environment.NewLine + block;
                     urlsTabControl.SelectedIndex = 0;
+                    learning.Log("youtube-m3u", "auto-search", true, note: $"modo={searchMode};itens={discovered.Count}");
+                    RefreshLearningStatus();
                     StatusMessage = $"Pesquisa automática concluída: {discovered.Count} itens adicionados (filtro anti trailer/shorts ativo).";
+                }
+                catch (Exception ex)
+                {
+                    learning.Log("youtube-m3u", "auto-search", false, "ERRO_PESQUISA", ex.Message);
+                    RefreshLearningStatus();
+                    System.Windows.MessageBox.Show($"Falha na pesquisa automática: {ex.Message}", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 finally
                 {
@@ -2040,6 +2081,8 @@ namespace MeuGestorVODs
                     });
 
                     var channelsText = exportResult.ChannelsCount > 0 ? exportResult.ChannelsCount.ToString() : "N/D";
+                    learning.Log("youtube-m3u", "generate-api", true, note: $"channels={channelsText}");
+                    RefreshLearningStatus();
                     StatusMessage = $"M3U YouTube API gerado com canais ativos: {channelsText}.";
 
                     var openNow = System.Windows.MessageBox.Show(
@@ -2060,6 +2103,8 @@ namespace MeuGestorVODs
                 }
                 catch (Exception ex)
                 {
+                    learning.Log("youtube-m3u", "generate-api", false, "FALHA_API", ex.Message);
+                    RefreshLearningStatus();
                     System.Windows.MessageBox.Show(
                         $"Falha ao gerar M3U pela API: {ex.Message}",
                         "YouTube para M3U",
@@ -2212,6 +2257,8 @@ namespace MeuGestorVODs
 
                     if (added == 0)
                     {
+                        learning.Log("youtube-m3u", "generate-manual", false, "SEM_LINK_VALIDO", $"invalidos={skippedInvalid};duplicados={skippedDuplicate};offline={skippedOffline}");
+                        RefreshLearningStatus();
                         System.Windows.MessageBox.Show("Nenhum link valido/online de YouTube foi encontrado.", "YouTube para M3U", MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
@@ -2224,6 +2271,8 @@ namespace MeuGestorVODs
 
                     File.WriteAllLines(outputPath, lines);
 
+                    learning.Log("youtube-m3u", "generate-manual", true, note: $"add={added};invalidos={skippedInvalid};duplicados={skippedDuplicate};offline={skippedOffline}");
+                    RefreshLearningStatus();
                     StatusMessage = $"M3U YouTube gerado: {added} adicionados | invalidos: {skippedInvalid} | duplicados: {skippedDuplicate} | offline: {skippedOffline}.";
                     var openNow = System.Windows.MessageBox.Show(
                         $"Arquivo criado com sucesso.\n\nAdicionados: {added}\nInvalidos: {skippedInvalid}\nDuplicados: {skippedDuplicate}\nOffline: {skippedOffline}\n\nAbrir no Bloco de Notas agora?",
@@ -2240,6 +2289,16 @@ namespace MeuGestorVODs
                             UseShellExecute = true
                         });
                     }
+                }
+                catch (Exception ex)
+                {
+                    learning.Log("youtube-m3u", "generate-manual", false, "ERRO_GERACAO", ex.Message);
+                    RefreshLearningStatus();
+                    System.Windows.MessageBox.Show(
+                        $"Falha ao gerar M3U manual: {ex.Message}",
+                        "YouTube para M3U",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
                 }
                 finally
                 {

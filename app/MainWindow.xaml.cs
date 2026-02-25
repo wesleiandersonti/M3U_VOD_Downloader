@@ -1452,6 +1452,13 @@ namespace MeuGestorVODs
             };
 
             var learning = new LearningFeedbackService(GetLearningFeedbackFilePath());
+            var learningSnapshot = learning.GetSnapshot("youtube-m3u");
+            var learningFailRate = learningSnapshot.Total > 0 ? (learningSnapshot.Total - learningSnapshot.Success) * 100 / learningSnapshot.Total : 0;
+
+            var adaptiveStrictFilter = learningSnapshot.Total >= 12 && learningFailRate >= 45;
+            var adaptiveValidateOnline = learningSnapshot.Total < 8 || learningFailRate >= 25;
+            var adaptiveAutoSearchLimit = adaptiveStrictFilter ? 18 : 30;
+
             var root = new Grid { Margin = new Thickness(14) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1773,7 +1780,7 @@ namespace MeuGestorVODs
             {
                 Content = "Validar links online antes de salvar",
                 Margin = new Thickness(0, 4, 0, 0),
-                IsChecked = true
+                IsChecked = adaptiveValidateOnline
             };
             optionsPanel.Children.Add(validateOnlineCheck);
 
@@ -1811,6 +1818,17 @@ namespace MeuGestorVODs
             };
             optionsPanel.Children.Add(learningStatusText);
 
+            var adaptiveInfoText = new TextBlock
+            {
+                Margin = new Thickness(0, 3, 0, 0),
+                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(90, 95, 120)),
+                TextWrapping = TextWrapping.Wrap,
+                Text = adaptiveStrictFilter
+                    ? "Modo adaptativo ativo: filtros mais rigorosos e limite menor na pesquisa automática."
+                    : "Modo adaptativo ativo: filtros padrão e pesquisa ampliada."
+            };
+            optionsPanel.Children.Add(adaptiveInfoText);
+
             void RefreshLearningStatus()
             {
                 var snap = learning.GetSnapshot("youtube-m3u");
@@ -1822,7 +1840,8 @@ namespace MeuGestorVODs
 
                 var rate = snap.Total > 0 ? (snap.Success * 100 / snap.Total) : 0;
                 var topError = snap.TopErrors.FirstOrDefault() ?? "nenhum";
-                learningStatusText.Text = $"Aprendizado: {rate}% acerto ({snap.Success}/{snap.Total}) | score {snap.Score} | erro recorrente: {topError}";
+                var strategy = adaptiveStrictFilter ? "estratégia adaptativa: filtro rigoroso + busca curta" : "estratégia adaptativa: filtro normal";
+                learningStatusText.Text = $"Aprendizado: {rate}% acerto ({snap.Success}/{snap.Total}) | score {snap.Score} | erro recorrente: {topError} | {strategy}";
             }
 
             RefreshLearningStatus();
@@ -1879,12 +1898,17 @@ namespace MeuGestorVODs
                 bool IsLowValueTitle(string title)
                 {
                     var t = (title ?? string.Empty).ToLowerInvariant();
-                    var blockedTerms = new[]
+                    var blockedTerms = new List<string>
                     {
                         "trailer", "teaser", "review", "critica", "crítica", "explicado", "resumo",
                         "react", "reação", "reacao", "cena", "clip", "shorts", "cortes", "corte",
                         "entrevista", "bastidores", "promo", "análise", "analise"
                     };
+
+                    if (adaptiveStrictFilter)
+                    {
+                        blockedTerms.AddRange(new[] { "melhores momentos", "compilado", "trecho", "narração", "comentando" });
+                    }
 
                     return blockedTerms.Any(term => t.Contains(term));
                 }
@@ -1893,6 +1917,7 @@ namespace MeuGestorVODs
                 if (!string.IsNullOrWhiteSpace(searchQuery)) queries.Add(searchQuery.Trim());
 
                 var mode = (searchMode ?? string.Empty).ToLowerInvariant();
+                var topLearningError = learningSnapshot.TopErrors.FirstOrDefault() ?? string.Empty;
                 if (mode.Contains("filmes") && !mode.Contains("série") && !mode.Contains("series"))
                 {
                     queries.AddRange(new[] { "filmes em alta", "filme completo dublado", "lançamentos filmes" });
@@ -1904,6 +1929,11 @@ namespace MeuGestorVODs
                 else
                 {
                     queries.AddRange(new[] { "filmes em alta", "séries em alta", "mais vistos youtube brasil" });
+                }
+
+                if (topLearningError.Contains("SEM_RESULTADO", StringComparison.OrdinalIgnoreCase))
+                {
+                    queries.AddRange(new[] { "youtube filmes completos", "youtube series dubladas", "ao vivo brasil agora" });
                 }
 
                 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(25) };
@@ -1944,7 +1974,7 @@ namespace MeuGestorVODs
                             var meta = InferAutoMetadata(title);
                             output.Add((title, link, meta.type, meta.year, meta.season, meta.episode));
 
-                            if (output.Count >= 30)
+                            if (output.Count >= adaptiveAutoSearchLimit)
                                 return output;
                         }
                     }
